@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>io.github.tabbyfx</groupId>
+    <artifactId>tabbyfx-parent</artifactId>
+    <version>0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <description>Experiment: a JavaFX multi-tab terminal, measured against Tabby for RAM, CPU and responsiveness.</description>
+
+    <modules>
+        <module>jeditermfx-ui</module>
+        <module>app</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jeditermfx.version>1.1.0</jeditermfx.version>
+        <pty4j.version>0.12.25</pty4j.version>
+        <javafx.version>25.0.4</javafx.version>
+        <slf4j.version>2.0.18</slf4j.version>
+        <jackson.version>2.21.2</jackson.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>jetbrains-intellij-dependencies</id>
+            <url>https://packages.jetbrains.team/maven/p/ij/intellij-dependencies</url>
+        </repository>
+    </repositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.github.tabbyfx</groupId><artifactId>tabbyfx-jeditermfx-ui</artifactId><version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.techsenger.jeditermfx</groupId><artifactId>jeditermfx-core</artifactId><version>${jeditermfx.version}</version>
+                <exclusions><exclusion><groupId>org.openjfx</groupId><artifactId>*</artifactId></exclusion></exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.pty4j</groupId><artifactId>pty4j</artifactId><version>${pty4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.openjfx</groupId><artifactId>javafx-base</artifactId><version>${javafx.version}</version><classifier>win</classifier>
+                <exclusions><exclusion><groupId>org.openjfx</groupId><artifactId>*</artifactId></exclusion></exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.openjfx</groupId><artifactId>javafx-graphics</artifactId><version>${javafx.version}</version><classifier>win</classifier>
+                <exclusions><exclusion><groupId>org.openjfx</groupId><artifactId>*</artifactId></exclusion></exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId><version>${javafx.version}</version><classifier>win</classifier>
+                <exclusions><exclusion><groupId>org.openjfx</groupId><artifactId>*</artifactId></exclusion></exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId><version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId><artifactId>slf4j-nop</artifactId><version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><version>${jackson.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.0</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

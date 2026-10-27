@@ -1,0 +1,7 @@
+target/
+shade/
+prp/
+CLAUDE.md
+.claude/
+dist/
+app/tabbyfx.jrc

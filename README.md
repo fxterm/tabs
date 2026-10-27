@@ -1,4 +1,6 @@
-# fxterm-tabs (FxTerminalTabs)
+# Tabs
+
+Full name **FxTerminalTabs**; we simply call it **Tabs**. The project and its files are named `fxterm-tabs` (organisation `fxterm`).
 
 A Windows terminal with vertical tabs, made for long sessions with AI coding agents such as Claude Code.
 

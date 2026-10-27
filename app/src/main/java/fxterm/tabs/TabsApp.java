@@ -192,7 +192,7 @@ public final class TabsApp extends Application {
     /** Window title, side list and footer, after a title, RAM or selection change. */
     void refresh() {
         var t = selected();
-        stage.setTitle(t == null ? "fxterm-tabs" : "fxterm-tabs - " + t.shown() + " (" + t.where() + ")");
+        stage.setTitle(t == null ? "Tabs" : "Tabs - " + t.shown() + " (" + t.where() + ")");
         list.refresh();
         footer.update(t, tabs, ram == null ? 0 : ram.selfBytes);
     }

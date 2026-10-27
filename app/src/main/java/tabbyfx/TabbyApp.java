@@ -99,6 +99,7 @@ public final class TabbyApp extends Application {
 
     TerminalTab adopt(TerminalTab t) {
         t.onExit = this::exited;
+        t.wake = () -> wake(t);
         t.title.addListener((ov, was, now) -> refresh());
         tabs.add(t);
         return t;
@@ -130,18 +131,29 @@ public final class TabbyApp extends Application {
         if (i >= 0 && i < tabs.size()) list.getSelectionModel().select(i);
     }
 
-    /** Showing a tab wakes it if it was asleep; that is the only thing that starts a restored session. */
+    /** Shows a tab. A new tab starts here; a sleeping one shows what waking it would run and waits to be asked
+     *  (see wake), so a restored session starts only for a tab the user actually wants back. */
     void show(TerminalTab t) {
         if (t == null) return;
+        if (t.sleeping == null || options.wakeAll) start(t);
+        content.getChildren().setAll(t.host);
+        paint();
+        refresh();
+        Platform.runLater(t::focus);
+    }
+
+    /** The user asked a sleeping tab to restore. */
+    void wake(TerminalTab t) {
+        start(t);
+        if (t == selected()) show(t);
+    }
+
+    void start(TerminalTab t) {
         try {
             t.start();
         } catch (IOException ex) {
             System.err.println("tabbyfx: cannot start tab: " + ex);
         }
-        content.getChildren().setAll(t.host);
-        paint();
-        refresh();
-        Platform.runLater(t::focus);
     }
 
     /** Window title, side list and footer, after a title, RAM or selection change. */

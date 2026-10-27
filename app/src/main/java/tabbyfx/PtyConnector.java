@@ -14,14 +14,23 @@ public final class PtyConnector implements TtyConnector {
             "CLAUDE_CODE_SSE_PORT", "CLAUDE_CODE_SESSION_ID", "CLAUDE_PID", "CLAUDE_CODE_MESSAGING_SOCKET",
             "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_EXECPATH", "CLAUDE_EFFORT");
 
+    /** cmd's prompt also sends its folder as OSC 9;9 (what Windows Terminal uses), invisible on screen; that is how a
+     *  plain shell's folder after `cd` is known and saved. */
+    static final String CWD_PROMPT = "$E]9;9;$P$E\\";
+    static final Pattern OSC_CWD = Pattern.compile("\u001b]9;9;([^\u0007\u001b]*)(?:\u0007|\u001b\\\\)");
+
     final PtyProcess process;
     final Reader reader;
     final String name;
+    final StringBuilder tail = new StringBuilder();
+    volatile String promptCwd;
 
     PtyConnector(List<String> argv, String cwd, int columns, int rows) throws IOException {
         var env = new HashMap<>(System.getenv());
         env.put("TERM", "xterm-256color");
         CLAUDE_MARKERS.forEach(env::remove);
+        if (!argv.isEmpty() && Path.of(argv.getFirst()).getFileName().toString().equalsIgnoreCase("cmd.exe"))
+            env.put("PROMPT", CWD_PROMPT + env.getOrDefault("PROMPT", "$P$G").replaceFirst("^CLINK ", ""));
         name = String.join(" ", argv);
         var dir = cwd != null && Files.isDirectory(Path.of(cwd)) ? cwd : System.getProperty("user.home");
         process = new PtyProcessBuilder().setCommand(argv.toArray(String[]::new)).setEnvironment(env)
@@ -33,7 +42,20 @@ public final class PtyConnector implements TtyConnector {
     @Override public int read(char[] buf, int offset, int length) throws IOException {
         var n = reader.read(buf, offset, length);
         IdleTrim.activity();
+        if (n > 0) watchCwd(buf, offset, n);
         return n;
+    }
+
+    /** Looks for the folder report in what was just read, keeping a short tail so one split across reads is found. */
+    void watchCwd(char[] buf, int offset, int n) {
+        tail.append(buf, offset, n);
+        if (tail.indexOf("\u001b]9;9;") >= 0) {
+            var m = OSC_CWD.matcher(tail);
+            var end = -1;
+            while (m.find()) { promptCwd = m.group(1); end = m.end(); }
+            if (end > 0) tail.delete(0, end);
+        }
+        if (tail.length() > 1024) tail.delete(0, tail.length() - 512);
     }
 
     @Override public void write(byte[] b) throws IOException {

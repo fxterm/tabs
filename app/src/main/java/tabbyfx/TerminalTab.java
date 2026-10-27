@@ -2,8 +2,10 @@ package tabbyfx;
 
 import module java.base;
 import javafx.beans.property.*;
-import javafx.scene.control.Label;
-import javafx.scene.layout.StackPane;
+import javafx.geometry.*;
+import javafx.scene.control.*;
+import javafx.scene.input.*;
+import javafx.scene.layout.*;
 import com.techsenger.jeditermfx.ui.JediTermFxWidget;
 
 /** One tab. Either live (a widget and a shell) or asleep (only what is needed to start it again: no process, no
@@ -21,6 +23,8 @@ public final class TerminalTab {
     PtyConnector connector;
     SavedTab sleeping;
     Consumer<TerminalTab> onExit = t -> { };
+    Runnable wake = () -> { };
+    Button wakeButton;
     volatile long ramBytes;
     volatile String liveCwd;
 
@@ -40,9 +44,12 @@ public final class TerminalTab {
         return new TerminalTab(o, theme, r.command(o), r.cwd);
     }
 
-    /** Where the tab is working: what claude reports, else where the tab was started. */
+    /** Where the tab is working: what claude reports, else what the shell's prompt last reported, else where the tab
+     *  was started. */
     String where() {
         if (liveCwd != null) return liveCwd;
+        var c = connector;
+        if (c != null && c.promptCwd != null) return c.promptCwd;
         if (sleeping != null && sleeping.cwd != null) return sleeping.cwd;
         return cwd != null ? cwd : System.getProperty("user.home");
     }
@@ -80,6 +87,7 @@ public final class TerminalTab {
         // (close, sleep) has already replaced the connector, so it is not mistaken for this.
         started.process.onExit().thenRun(() -> javafx.application.Platform.runLater(() -> { if (connector == started) onExit.accept(this); }));
         host.getChildren().setAll(widget.getPane());
+        wakeButton = null;
         sleeping = null;
         asleep.set(false);
     }
@@ -91,20 +99,45 @@ public final class TerminalTab {
         return decorate(ClaudeProbe.of(connector.process.pid()).map(c -> c.withArgs(commandLines).saved(title.get())).orElseGet(() -> {
             var s = new SavedTab();
             s.title = title.get();
-            s.cwd = cwd;
+            s.cwd = connector.promptCwd != null ? connector.promptCwd : cwd;
+            s.shell = SavedTab.shellOf(argv);
             return s;
         }));
     }
 
-    /** Ends the process and frees the widget; keeps the saved form so the tab can start again. */
+    /** Ends the process and frees the widget; keeps the saved form so the tab can start again. In its place the tab
+     *  shows what waking it would start, and waits to be asked: Enter or F2, or the button. */
     void sleep(SavedTab s) {
         close();
         sleeping = s;
         title.set(s.title);
         asleep.set(true);
-        var label = new Label("asleep - shown again, it resumes" + (s.claude() ? " claude session " + s.claudeSessionId : " a new shell"));
-        label.setStyle("-fx-text-fill: " + theme.foreground + "; -fx-opacity: 0.6; -fx-font-size: 14;");
-        host.getChildren().setAll(label);
+        var fg = "-fx-text-fill: " + theme.foreground + ";";
+        var head = new Label("This tab is asleep" + (s.claude() ? ": claude session " + s.claudeSessionId : "") + ".");
+        head.setStyle(fg + " -fx-font-size: 16;");
+        var what = new Label("Restoring it runs:\n    " + s.commandLine() + "\nin:\n    " + (s.cwd != null ? s.cwd : System.getProperty("user.home")));
+        what.setStyle(fg + " -fx-opacity: 0.8; -fx-font-size: 13; -fx-font-family: '" + o.family + "';");
+        what.setWrapText(true);
+        var restore = new Button("Restore this tab (Enter or F2)");
+        restore.setStyle("-fx-font-size: 13; -fx-background-color: " + theme.colors.get(4) + "; -fx-text-fill: #ffffff; -fx-padding: 6 14 6 14;");
+        restore.setOnAction(e -> wake.run());
+        var later = new Label("Leaving it asleep costs nothing; another tab can be chosen instead.");
+        later.setStyle(fg + " -fx-opacity: 0.5; -fx-font-size: 12;");
+        var box = new VBox(14, head, what, restore, later);
+        box.setPadding(new Insets(40));
+        box.setMaxWidth(900);
+        box.setAlignment(Pos.TOP_LEFT);
+        // a keystroke typed into the previous tab just before switching must not wake this one
+        var armedAt = new long[] {Long.MAX_VALUE};
+        box.sceneProperty().addListener((ov, was, now) -> { if (now != null) armedAt[0] = System.currentTimeMillis() + 700; });
+        box.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() != KeyCode.ENTER && e.getCode() != KeyCode.F2 && e.getCode() != KeyCode.SPACE) return;
+            e.consume();
+            if (e.getCode() != KeyCode.SPACE && System.currentTimeMillis() >= armedAt[0]) wake.run();
+        });
+        wakeButton = restore;
+        StackPane.setAlignment(box, Pos.TOP_LEFT);
+        host.getChildren().setAll(box);
     }
 
     boolean live() {
@@ -112,7 +145,10 @@ public final class TerminalTab {
     }
 
     void focus() {
-        if (widget == null) return;
+        if (widget == null) {
+            if (wakeButton != null) wakeButton.requestFocus();
+            return;
+        }
         var n = widget.getPreferredFocusableNode();
         if (n != null) n.requestFocus();
     }

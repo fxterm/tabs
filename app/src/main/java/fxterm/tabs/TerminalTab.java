@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import javafx.beans.property.*;
@@ -86,7 +86,7 @@ public final class TerminalTab {
         widget.getTerminalPanel().setTitleListener(t -> { if (!t.isBlank()) title.set(t); });
         widget.start();
         var started = connector;
-        // the program ended by itself (exit in cmd): the tab goes, as in other terminals. An exit tabbyfx caused
+        // the program ended by itself (exit in cmd): the tab goes, as in other terminals. An exit fxterm-tabs caused
         // (close, sleep) has already replaced the connector, so it is not mistaken for this.
         started.process.onExit().thenRun(() -> javafx.application.Platform.runLater(() -> { if (connector == started) onExit.accept(this); }));
         host.getChildren().setAll(widget.getPane());
@@ -108,7 +108,7 @@ public final class TerminalTab {
             s.shell = SavedTab.shellOf(argv);
             s.lastClaude = lastClaude;
             if (lastClaudePid != 0 && ProcessHandle.of(lastClaudePid).map(ProcessHandle::isAlive).orElse(false))
-                System.err.println("tabbyfx: claude " + lastClaudePid + " is running but was not found under tab '" + shown()
+                System.err.println("fxterm-tabs: claude " + lastClaudePid + " is running but was not found under tab '" + shown()
                         + "'; saved as a shell with its session offered (F3)");
             return s;
         }));
@@ -136,7 +136,7 @@ public final class TerminalTab {
         var last = s.claude() ? null : s.lastClaude;
         Runnable resumeLast = () -> { };
         if (last != null) {
-            // the shell had run claude and it was ended before tabbly closed: offer that session too
+            // the shell had run claude and it was ended before fxterm-tabs closed: offer that session too
             var lastWhat = new Label("Or resume the claude session this tab ran last" + (last.title != null ? " (" + last.title + ")" : "")
                     + ":\n    " + last.commandLine() + "\nin:\n    " + last.cwd);
             lastWhat.setStyle(what.getStyle());

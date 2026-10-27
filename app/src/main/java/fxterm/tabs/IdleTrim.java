@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import java.lang.foreign.*;

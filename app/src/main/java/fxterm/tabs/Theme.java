@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import com.techsenger.jeditermfx.core.*;
 import com.techsenger.jeditermfx.core.emulator.ColorPalette;

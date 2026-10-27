@@ -209,7 +209,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
 
     private final AtomicBoolean needRepaint = new AtomicBoolean(true);
 
-    // tabbyfx fork: called on the FX thread after every repaint, for latency measurement
+    // fxterm-tabs fork: called on the FX thread after every repaint, for latency measurement
     private volatile Runnable repaintListener;
 
     public void setRepaintListener(Runnable listener) {
@@ -488,7 +488,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
                 && isLocalMouseAction(e)) {
             handlePasteSelection();
         } else if (e.getButton() == MouseButton.SECONDARY && !e.isControlDown()) {
-            // tabbyfx: right-click as in the Windows console: copies the selection if there is one, else pastes.
+            // fxterm-tabs: right-click as in the Windows console: copies the selection if there is one, else pastes.
             // Ctrl+right-click still opens the menu.
             if (mySelection.get() != null) {
                 handleCopy(true, false);
@@ -611,7 +611,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
 
     public void repaint() {
         this.needRepaint.set(true);
-        // tabbyfx fork: draw now rather than at the next timer tick, so a keystroke's echo is not held back by up
+        // fxterm-tabs fork: draw now rather than at the next timer tick, so a keystroke's echo is not held back by up
         // to a frame. At most one repaint is queued, and within MIN_REPAINT_NANOS of the last one the timer takes
         // over, so a flood of output still cannot repaint faster than that.
         if (painting && System.nanoTime() - lastRepaintNanos > MIN_REPAINT_NANOS && repaintQueued.compareAndSet(false, true)) {
@@ -628,7 +628,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         }
     }
 
-    // tabbyfx fork: a panel that is not on screen (hidden tab, minimised window) does not paint at all; its model
+    // fxterm-tabs fork: a panel that is not on screen (hidden tab, minimised window) does not paint at all; its model
     // keeps updating, and turning painting back on draws the current state once.
     private static final long MIN_REPAINT_NANOS = 8_000_000;
     private volatile boolean painting = true;
@@ -1906,7 +1906,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         if (listener != null) Platform.runLater(() -> listener.accept(windowTitle));
     }
 
-    // tabbyfx fork: the title a program sets (OSC 0/2), delivered on the FX thread, so a tab can show it
+    // fxterm-tabs fork: the title a program sets (OSC 0/2), delivered on the FX thread, so a tab can show it
     private volatile java.util.function.Consumer<String> titleListener;
 
     public void setTitleListener(java.util.function.Consumer<String> listener) {
@@ -2158,7 +2158,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
             return false;
         }
         var keyChar = e.getCharacter().charAt(0);
-        // tabbyfx: a control character arrives here only when its key press was not handled (a handled press sets
+        // fxterm-tabs: a control character arrives here only when its key press was not handled (a handled press sets
         // myIgnoreNextKeyTypedEvent). On Windows that is Esc: JavaFX gives its press no text and no key code the
         // encoder knows, so skipping control characters here dropped Esc altogether.
         {

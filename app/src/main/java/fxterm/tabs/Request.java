@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 
@@ -9,7 +9,7 @@ public final class Request {
     public String kind = "show", cwd;
     public List<String> argv = new ArrayList<>();
 
-    /** Null when the arguments are not a Tabby-style command (then they are tabbyfx options). */
+    /** Null when the arguments are not a Tabby-style command (then they are fxterm-tabs options). */
     static Request parse(List<String> args) {
         var r = new Request();
         r.cwd = System.getProperty("user.dir");

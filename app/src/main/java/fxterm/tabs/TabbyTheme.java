@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 
@@ -8,7 +8,7 @@ public final class TabbyTheme {
 
     static final Path CONFIG = Path.of(System.getenv().getOrDefault("APPDATA", ""), "tabby", "config.yaml");
 
-    String name = "tabbyfx dark", foreground = "#e8eaf2", background = "#0f1324", cursor = "#e8eaf2";
+    String name = "fxterm-tabs dark", foreground = "#e8eaf2", background = "#0f1324", cursor = "#e8eaf2";
     List<String> colors = new ArrayList<>(List.of(
             "#000000", "#cd3131", "#0dbc79", "#e5e510", "#2472c8", "#bc3fbc", "#11a8cd", "#e5e5e5",
             "#666666", "#f14c4c", "#23d18b", "#f5f543", "#3b8eea", "#d670d6", "#29b8db", "#ffffff"));
@@ -20,7 +20,7 @@ public final class TabbyTheme {
         try {
             t.read(Files.readAllLines(CONFIG));
         } catch (IOException | RuntimeException e) {
-            System.err.println("tabbyfx: could not read Tabby's theme, using the built-in one: " + e);
+            System.err.println("fxterm-tabs: could not read Tabby's theme, using the built-in one: " + e);
         }
         return t;
     }

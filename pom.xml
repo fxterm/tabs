@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>io.github.tabbyfx</groupId>
-    <artifactId>tabbyfx-parent</artifactId>
+    <groupId>io.github.fxterm</groupId>
+    <artifactId>fxterm-tabs-parent</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <description>Experiment: a JavaFX multi-tab terminal, measured against Tabby for RAM, CPU and responsiveness.</description>
+    <description>fxterm-tabs (FxTerminalTabs): a Windows terminal with vertical tabs and sleeping tabs, made for long Claude Code sessions.</description>
 
     <modules>
         <module>jeditermfx-ui</module>
@@ -32,7 +32,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>io.github.tabbyfx</groupId><artifactId>tabbyfx-jeditermfx-ui</artifactId><version>${project.version}</version>
+                <groupId>io.github.fxterm</groupId><artifactId>fxterm-jeditermfx-ui</artifactId><version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.techsenger.jeditermfx</groupId><artifactId>jeditermfx-core</artifactId><version>${jeditermfx.version}</version>

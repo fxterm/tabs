@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import javafx.beans.binding.Bindings;
@@ -22,12 +22,12 @@ public final class Sidebar {
         COLOURS.put("Cyan", 6);
     }
 
-    final TabbyApp app;
+    final TabsApp app;
     final TabbyTheme theme;
     final ListView<TerminalTab> list;
     final VBox node;
 
-    Sidebar(TabbyApp app, ObservableList<TerminalTab> tabs, TabbyTheme theme) {
+    Sidebar(TabsApp app, ObservableList<TerminalTab> tabs, TabbyTheme theme) {
         this.app = app;
         this.theme = theme;
         list = new ListView<>(tabs);

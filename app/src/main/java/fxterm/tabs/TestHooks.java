@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import javafx.application.Platform;
@@ -9,7 +9,7 @@ import javafx.scene.input.*;
 /** Everything only unattended tests use: benchmark, scripted keys, a scene snapshot, a timed quit. */
 public final class TestHooks {
 
-    static void start(TabbyApp app, Scene scene, Options o) {
+    static void start(TabsApp app, Scene scene, Options o) {
         if (o.bench > 0) new Bench(app.selected(), o).run();
         if (o.testKeys) Thread.ofPlatform().daemon().start(() -> {
             for (var k : List.of(KeyCode.T, KeyCode.T, KeyCode.TAB, KeyCode.W, KeyCode.W)) {
@@ -69,7 +69,7 @@ public final class TestHooks {
         Event.fireEvent(n, new KeyEvent(type, ch, text, code, false, false, false, false));
     }
 
-    static void report(TabbyApp app, Scene scene, String when) {
+    static void report(TabsApp app, Scene scene, String when) {
         var t = app.selected();
         System.err.println("test-wake: " + when + ": " + (t.live() ? "live" : "asleep") + ", where " + t.where()
                 + ", focus on " + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName()));

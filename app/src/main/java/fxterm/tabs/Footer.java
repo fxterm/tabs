@@ -1,10 +1,10 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import javafx.scene.control.Label;
 import javafx.scene.layout.*;
 
-/** The status line: the selected tab's RAM and folder on the left; all tabs together, tabbyfx itself and how many
+/** The status line: the selected tab's RAM and folder on the left; all tabs together, fxterm-tabs itself and how many
  *  tabs are live or asleep on the right. */
 public final class Footer extends HBox {
 
@@ -23,7 +23,7 @@ public final class Footer extends HBox {
         left.setText(selected == null ? "" : (selected.live() ? Mem.mb(selected.ramBytes) : "asleep") + "   " + selected.where());
         var live = tabs.stream().filter(TerminalTab::live).count();
         var total = tabs.stream().mapToLong(t -> t.live() ? t.ramBytes : 0).sum();
-        right.setText("all tabs " + Mem.mb(total) + "   ·   tabbyfx " + Mem.mb(selfBytes) + "   ·   " + live + " live, "
+        right.setText("all tabs " + Mem.mb(total) + "   ·   fxterm-tabs " + Mem.mb(selfBytes) + "   ·   " + live + " live, "
                 + (tabs.size() - live) + " asleep");
     }
 }

@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import java.lang.foreign.*;
@@ -50,10 +50,10 @@ public final class TitleBar {
                     count++;
                 }
             }
-            if (count > 0) System.err.println("tabbyfx: title bar coloured");
+            if (count > 0) System.err.println("fxterm-tabs: title bar coloured");
             return count;
         } catch (Throwable e) {
-            System.err.println("tabbyfx: title bar colour not applied: " + e);
+            System.err.println("fxterm-tabs: title bar colour not applied: " + e);
             return -1;
         }
     }
@@ -63,7 +63,7 @@ public final class TitleBar {
             var v = arena.allocate(ValueLayout.JAVA_INT);
             v.set(ValueLayout.JAVA_INT, 0, a[1]);
             var hr = (int) set.invoke(hwnd, a[0], v, 4);
-            if (hr != 0) System.err.println("tabbyfx: DwmSetWindowAttribute(" + a[0] + ") = 0x" + Integer.toHexString(hr));
+            if (hr != 0) System.err.println("fxterm-tabs: DwmSetWindowAttribute(" + a[0] + ") = 0x" + Integer.toHexString(hr));
         }
     }
 

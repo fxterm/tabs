@@ -1,10 +1,10 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 
-/** The open tabs, saved on close and read on start: ~/tabbyfx/tabbyfx/session.json (another file with --state). */
+/** The open tabs, saved on close and read on start: ~/fxterm/tabs/session.json (another file with --state). */
 public final class SessionStore {
 
     static final ObjectMapper JSON = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT)
@@ -13,7 +13,7 @@ public final class SessionStore {
     final Path file;
 
     SessionStore(Options o) {
-        file = o.state != null ? Path.of(o.state) : Path.of(System.getProperty("user.home"), "tabbyfx", "tabbyfx", "session.json");
+        file = o.state != null ? Path.of(o.state) : Path.of(System.getProperty("user.home"), "fxterm", "tabs", "session.json");
     }
 
     List<SavedTab> load() {
@@ -21,7 +21,7 @@ public final class SessionStore {
         try {
             return JSON.readValue(file.toFile(), new TypeReference<List<SavedTab>>() { });
         } catch (IOException e) {
-            System.err.println("tabbyfx: session file unreadable, starting empty: " + e);
+            System.err.println("fxterm-tabs: session file unreadable, starting empty: " + e);
             return List.of();
         }
     }
@@ -33,7 +33,7 @@ public final class SessionStore {
             JSON.writeValue(tmp.toFile(), tabs);
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
-            System.err.println("tabbyfx: could not save the session: " + e);
+            System.err.println("fxterm-tabs: could not save the session: " + e);
         }
     }
 }

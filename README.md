@@ -1,4 +1,4 @@
-# tabbly
+# fxterm-tabs (FxTerminalTabs)
 
 A Windows terminal with vertical tabs, made for long sessions with AI coding agents such as Claude Code.
 
@@ -18,7 +18,7 @@ JDK 25 and Maven:
 
 ```
 mvn package
-java -jar shade/tabbyfx.jar
+java -jar shade/fxterm-tabs.jar
 ```
 
 ## Credits and licences

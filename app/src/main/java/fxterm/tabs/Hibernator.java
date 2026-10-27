@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import java.lang.management.ManagementFactory;
@@ -22,7 +22,7 @@ public final class Hibernator {
         Thread.ofPlatform().daemon().name("hibernator").start(() -> {
             while (true) {
                 try { Thread.sleep(60_000); } catch (InterruptedException e) { return; }
-                try { tick(); } catch (RuntimeException e) { System.err.println("tabbyfx: hibernator: " + e); }
+                try { tick(); } catch (RuntimeException e) { System.err.println("fxterm-tabs: hibernator: " + e); }
             }
         });
     }

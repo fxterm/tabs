@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,7 +67,7 @@ public final class ClaudeProbe {
             }
             p.waitFor(15, TimeUnit.SECONDS);
         } catch (IOException | InterruptedException | NumberFormatException e) {
-            System.err.println("tabbyfx: could not read claude command lines: " + e);
+            System.err.println("fxterm-tabs: could not read claude command lines: " + e);
         }
         return out;
     }

@@ -133,7 +133,7 @@ public class JediTermFxWidget implements TerminalSession, TerminalWidget, Termin
 
     @Override
     public Node getPreferredFocusableNode() {
-        // tabbyfx: the canvas, not its pane; the key handlers are on the canvas, so focusing the pane left typing dead
+        // fxterm-tabs: the canvas, not its pane; the key handlers are on the canvas, so focusing the pane left typing dead
         return this.myTerminalPanel.getCanvas();
     }
 

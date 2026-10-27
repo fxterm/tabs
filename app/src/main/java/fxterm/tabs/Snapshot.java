@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import java.awt.image.BufferedImage;
@@ -26,7 +26,7 @@ public final class Snapshot {
         try {
             javax.imageio.ImageIO.write(out, "png", new File(file));
         } catch (IOException e) {
-            System.err.println("tabbyfx: snapshot failed: " + e);
+            System.err.println("fxterm-tabs: snapshot failed: " + e);
         }
     }
 }

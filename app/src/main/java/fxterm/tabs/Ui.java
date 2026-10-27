@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import java.util.function.IntBinaryOperator;
 import javafx.scene.control.*;
@@ -76,7 +76,7 @@ public final class Ui {
     static boolean confirm(Stage owner, String message) {
         var a = new Alert(Alert.AlertType.CONFIRMATION, message + "\n\nF2: close anyway    Esc: keep working", ButtonType.OK, ButtonType.CANCEL);
         a.initOwner(owner);
-        a.setHeaderText("Close tabbyfx?");
+        a.setHeaderText("Close fxterm-tabs?");
         var armedAt = System.currentTimeMillis() + 1500;
         a.getDialogPane().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
             if (System.currentTimeMillis() < armedAt) { e.consume(); return; }

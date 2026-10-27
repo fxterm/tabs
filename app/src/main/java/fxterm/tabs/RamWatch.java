@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import javafx.application.Platform;
@@ -22,7 +22,7 @@ public final class RamWatch {
         Thread.ofPlatform().daemon().name("ram-watch").start(() -> {
             while (true) {
                 try { Thread.sleep(PERIOD_MS); } catch (InterruptedException e) { return; }
-                try { tick(); } catch (RuntimeException e) { System.err.println("tabbyfx: ram watch: " + e); }
+                try { tick(); } catch (RuntimeException e) { System.err.println("fxterm-tabs: ram watch: " + e); }
             }
         });
     }
@@ -37,7 +37,7 @@ public final class RamWatch {
             var probe = c == null ? Optional.<ClaudeProbe>empty() : ClaudeProbe.of(c.process.pid());
             var cwd = probe.map(p -> p.cwd).orElse(null);
             // remember each claude the tab runs, flags included (read once per new claude), so the tab can offer it
-            // again after claude was ended with /exit and tabbly was restarted
+            // again after claude was ended with /exit and fxterm-tabs was restarted
             probe.filter(p -> p.pid != t.lastClaudePid).ifPresent(p -> {
                 t.lastClaude = p.withArgs(ClaudeProbe.commandLines()).saved(null);
                 t.lastClaudePid = p.pid;

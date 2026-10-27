@@ -1,13 +1,13 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import com.fasterxml.jackson.databind.*;
 import javafx.stage.Stage;
 
-/** Window position, size and the tab list's width, kept across runs in ~/tabbyfx/tabbyfx/window.json. */
+/** Window position, size and the tab list's width, kept across runs in ~/fxterm/tabs/window.json. */
 public final class WindowState {
 
-    static final Path FILE = Path.of(System.getProperty("user.home"), "tabbyfx", "tabbyfx", "window.json");
+    static final Path FILE = Path.of(System.getProperty("user.home"), "fxterm", "tabs", "window.json");
     static final ObjectMapper JSON = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     public double x = Double.NaN, y = Double.NaN, width = 1200, height = 720, sidebar = 240;
@@ -41,7 +41,7 @@ public final class WindowState {
             Files.createDirectories(FILE.getParent());
             JSON.writeValue(FILE.toFile(), s);
         } catch (IOException e) {
-            System.err.println("tabbyfx: window state not saved: " + e);
+            System.err.println("fxterm-tabs: window state not saved: " + e);
         }
     }
 }

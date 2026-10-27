@@ -2,19 +2,19 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>io.github.tabbyfx</groupId>
-        <artifactId>tabbyfx-parent</artifactId>
+        <groupId>io.github.fxterm</groupId>
+        <artifactId>fxterm-tabs-parent</artifactId>
         <version>0.1-SNAPSHOT</version>
     </parent>
-    <artifactId>tabbyfx</artifactId>
+    <artifactId>fxterm-tabs</artifactId>
 
     <properties>
-        <main.class>tabbyfx.Main</main.class>
+        <main.class>fxterm.tabs.Main</main.class>
         <exec.mainClass>${main.class}</exec.mainClass>
     </properties>
 
     <dependencies>
-        <dependency><groupId>io.github.tabbyfx</groupId><artifactId>tabbyfx-jeditermfx-ui</artifactId></dependency>
+        <dependency><groupId>io.github.fxterm</groupId><artifactId>fxterm-jeditermfx-ui</artifactId></dependency>
         <dependency><groupId>com.techsenger.jeditermfx</groupId><artifactId>jeditermfx-core</artifactId></dependency>
         <dependency><groupId>org.jetbrains.pty4j</groupId><artifactId>pty4j</artifactId></dependency>
         <dependency><groupId>org.openjfx</groupId><artifactId>javafx-base</artifactId><classifier>win</classifier></dependency>
@@ -46,7 +46,7 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                            <outputFile>${project.basedir}/../shade/tabbyfx.jar</outputFile>
+                            <outputFile>${project.basedir}/../shade/fxterm-tabs.jar</outputFile>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>${main.class}</mainClass>

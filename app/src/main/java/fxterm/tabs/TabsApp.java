@@ -1,4 +1,4 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import javafx.application.*;
@@ -12,7 +12,7 @@ import javafx.stage.*;
 
 /** Tabs listed down the left, as Tabby shows them; only the selected tab is attached and painting.
  *  Keys (see keys()): Ctrl+Shift+T new, Ctrl+Shift+W close, Ctrl+Tab / Ctrl+Shift+Tab, Alt+1..9, F11 full screen. */
-public final class TabbyApp extends Application {
+public final class TabsApp extends Application {
 
     static Request request;
 
@@ -185,14 +185,14 @@ public final class TabbyApp extends Application {
         try {
             t.start();
         } catch (IOException ex) {
-            System.err.println("tabbyfx: cannot start tab: " + ex);
+            System.err.println("fxterm-tabs: cannot start tab: " + ex);
         }
     }
 
     /** Window title, side list and footer, after a title, RAM or selection change. */
     void refresh() {
         var t = selected();
-        stage.setTitle(t == null ? "tabbyfx" : "tabbyfx - " + t.shown() + " (" + t.where() + ")");
+        stage.setTitle(t == null ? "fxterm-tabs" : "fxterm-tabs - " + t.shown() + " (" + t.where() + ")");
         list.refresh();
         footer.update(t, tabs, ram == null ? 0 : ram.selfBytes);
     }

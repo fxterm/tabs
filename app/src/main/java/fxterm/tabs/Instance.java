@@ -1,15 +1,15 @@
-package tabbyfx;
+package fxterm.tabs;
 
 import module java.base;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /** One window per user. The first launch listens on a loopback port and writes the port and a random token to
- *  ~/tabbyfx/tabbyfx/run/instance.json; a later launch sends its Request there and exits. The token matters: the
+ *  ~/fxterm/tabs/run/instance.json; a later launch sends its Request there and exits. The token matters: the
  *  port opens tabs that run commands, so only a process that can read the user's own files may use it. */
 public final class Instance {
 
-    static final Path FILE = System.getenv("TABBYFX_INSTANCE") != null ? Path.of(System.getenv("TABBYFX_INSTANCE"))
-            : Path.of(System.getProperty("user.home"), "tabbyfx", "tabbyfx", "run", "instance.json");
+    static final Path FILE = System.getenv("FXTERM_TABS_INSTANCE") != null ? Path.of(System.getenv("FXTERM_TABS_INSTANCE"))
+            : Path.of(System.getProperty("user.home"), "fxterm", "tabs", "run", "instance.json");
     static final ObjectMapper JSON = new ObjectMapper();
 
     /** True if a running window took the request. */
@@ -49,12 +49,12 @@ public final class Instance {
                         if (ok) handler.accept(JSON.treeToValue(n.path("request"), Request.class));
                         s.getOutputStream().write((ok ? "ok\n" : "denied\n").getBytes(StandardCharsets.UTF_8));
                     } catch (IOException | RuntimeException e) {
-                        System.err.println("tabbyfx: instance request failed: " + e);
+                        System.err.println("fxterm-tabs: instance request failed: " + e);
                     }
                 }
             });
         } catch (IOException | GeneralSecurityException e) {
-            System.err.println("tabbyfx: cannot listen for other launches: " + e);
+            System.err.println("fxterm-tabs: cannot listen for other launches: " + e);
         }
     }
 

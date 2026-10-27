@@ -91,6 +91,8 @@ public final class TerminalTab {
         started.process.onExit().thenRun(() -> javafx.application.Platform.runLater(() -> { if (connector == started) onExit.accept(this); }));
         host.getChildren().setAll(widget.getPane());
         wakeButton = null;
+        // a woken claude tab knows its session from the start, so it is never saved without it (see snapshot)
+        if (sleeping != null && sleeping.claude() && lastClaude == null) lastClaude = sleeping;
         sleeping = null;
         asleep.set(false);
     }
@@ -105,6 +107,9 @@ public final class TerminalTab {
             s.cwd = connector.promptCwd != null ? connector.promptCwd : cwd;
             s.shell = SavedTab.shellOf(argv);
             s.lastClaude = lastClaude;
+            if (lastClaudePid != 0 && ProcessHandle.of(lastClaudePid).map(ProcessHandle::isAlive).orElse(false))
+                System.err.println("tabbyfx: claude " + lastClaudePid + " is running but was not found under tab '" + shown()
+                        + "'; saved as a shell with its session offered (F3)");
             return s;
         }));
     }
@@ -139,6 +144,7 @@ public final class TerminalTab {
             var resume = new Button("Resume that claude session (F3)");
             resume.setStyle("-fx-font-size: 13; -fx-padding: 6 14 6 14;");
             resumeLast = () -> {
+                lastClaude = last;
                 argv = last.command();
                 cwd = last.cwd;
                 wake.run();

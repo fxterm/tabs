@@ -34,7 +34,14 @@ public final class RamWatch {
         for (var t : snapshot.join()) {
             var c = t.connector;
             var bytes = c == null ? 0 : Mem.tab(c.process.pid());
-            var cwd = c == null ? null : ClaudeProbe.of(c.process.pid()).map(p -> p.cwd).orElse(null);
+            var probe = c == null ? Optional.<ClaudeProbe>empty() : ClaudeProbe.of(c.process.pid());
+            var cwd = probe.map(p -> p.cwd).orElse(null);
+            // remember each claude the tab runs, flags included (read once per new claude), so the tab can offer it
+            // again after claude was ended with /exit and tabbly was restarted
+            probe.filter(p -> p.pid != t.lastClaudePid).ifPresent(p -> {
+                t.lastClaude = p.withArgs(ClaudeProbe.commandLines()).saved(null);
+                t.lastClaudePid = p.pid;
+            });
             if (Math.abs(bytes - t.ramBytes) >= MIN_CHANGE || !Objects.equals(cwd, t.liveCwd)) {
                 t.ramBytes = bytes;
                 t.liveCwd = cwd;

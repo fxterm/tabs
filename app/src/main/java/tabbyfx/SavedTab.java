@@ -9,6 +9,8 @@ public final class SavedTab {
     /** The shell a plain tab ran (cmd.exe, powershell.exe, pwsh.exe, bash.exe, wsl.exe); null means cmd.exe. */
     public String shell;
     public List<String> claudeArgs = new ArrayList<>();
+    /** For a plain shell: the claude it ran last, ended before tabbly closed; offered on waking. */
+    public SavedTab lastClaude;
     public long savedAt = System.currentTimeMillis();
 
     static final Set<String> SHELLS = Set.of("cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe", "wsl.exe");

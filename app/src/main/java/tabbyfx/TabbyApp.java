@@ -52,6 +52,11 @@ public final class TabbyApp extends Application {
         scene.getPreferences().setColorScheme(theme.dark() ? javafx.application.ColorScheme.DARK : javafx.application.ColorScheme.LIGHT);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::keys);
         scene.addEventFilter(KeyEvent.ANY, e -> IdleTrim.activity());
+        // the keys always belong to the shown tab: a click in the tab list, or coming back to the window, must not
+        // leave them with the list or with nothing
+        scene.focusOwnerProperty().addListener((ov, was, now) -> { if (now == null || inside(now, sidebar.node)) focusSoon(); });
+        stage.focusedProperty().addListener((ov, was, now) -> { if (now) focusSoon(); });
+        sidebar.list.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_RELEASED, e -> focusSoon());
         stage.setScene(scene);
         stage.getIcons().addAll(new Image(getClass().getResourceAsStream("icon-256.png")), new Image(getClass().getResourceAsStream("icon-32.png")));
         stage.setOnCloseRequest(e -> { e.consume(); quit(); });
@@ -116,6 +121,8 @@ public final class TabbyApp extends Application {
         var code = e.getCode();
         if (ctrlShift && code == KeyCode.T) add();
         else if (ctrlShift && code == KeyCode.W) close(selected());
+        else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
+            move(selected(), tabs.indexOf(selected()) + (code == KeyCode.PAGE_UP ? -1 : 1));
         else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
         else if (alt && code.isDigitKey() && code != KeyCode.DIGIT0) select(code.getCode() - KeyCode.DIGIT1.getCode());
         else if (code == KeyCode.F11 && !e.isControlDown() && !e.isAltDown() && !e.isShiftDown()) stage.setFullScreen(!stage.isFullScreen());
@@ -134,12 +141,38 @@ public final class TabbyApp extends Application {
     /** Shows a tab. A new tab starts here; a sleeping one shows what waking it would run and waits to be asked
      *  (see wake), so a restored session starts only for a tab the user actually wants back. */
     void show(TerminalTab t) {
-        if (t == null) return;
+        if (t == null || moving) return;
         if (t.sleeping == null || options.wakeAll) start(t);
         content.getChildren().setAll(t.host);
         paint();
         refresh();
         Platform.runLater(t::focus);
+    }
+
+    /** Puts a tab at another place in the list (drag and drop, Ctrl+Shift+PgUp/PgDn); the shown tab stays shown. */
+    void move(TerminalTab t, int to) {
+        var shown = selected();
+        moving = true;
+        try {
+            tabs.remove(t);
+            tabs.add(Math.clamp(to, 0, tabs.size()), t);
+            list.getSelectionModel().select(shown);
+        } finally {
+            moving = false;
+        }
+        refresh();
+        focusSoon();
+    }
+
+    boolean moving;
+
+    void focusSoon() {
+        Platform.runLater(() -> { var t = selected(); if (t != null) t.focus(); });
+    }
+
+    static boolean inside(javafx.scene.Node n, javafx.scene.Node parent) {
+        for (var p = n; p != null; p = p.getParent()) if (p == parent) return true;
+        return false;
     }
 
     /** The user asked a sleeping tab to restore. */

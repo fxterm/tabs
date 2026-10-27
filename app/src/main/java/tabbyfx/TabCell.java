@@ -3,6 +3,7 @@ package tabbyfx;
 import module java.base;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.input.*;
 import javafx.scene.layout.*;
 
 /** A tab's row: its number (Alt+number selects it), its name, and under that the folder and the RAM it uses; a
@@ -32,6 +33,27 @@ public final class TabCell extends ListCell<TerminalTab> {
         row.setAlignment(Pos.CENTER_LEFT);
         tip.setShowDelay(javafx.util.Duration.millis(400));
         setPrefWidth(0);
+        // drag a tab onto another to put it there
+        setOnDragDetected(e -> {
+            if (getItem() == null) return;
+            var db = startDragAndDrop(TransferMode.MOVE);
+            db.setDragView(snapshot(null, null));
+            var c = new ClipboardContent();
+            c.putString("tab " + getIndex());
+            db.setContent(c);
+            e.consume();
+        });
+        setOnDragOver(e -> {
+            if (e.getGestureSource() instanceof TabCell src && src != this && src.side == side) e.acceptTransferModes(TransferMode.MOVE);
+            e.consume();
+        });
+        setOnDragDropped(e -> {
+            if (e.getGestureSource() instanceof TabCell src && src.getItem() != null) {
+                side.app.move(src.getItem(), isEmpty() || getItem() == null ? Integer.MAX_VALUE : getIndex());
+                e.setDropCompleted(true);
+            }
+            e.consume();
+        });
         name.setMaxWidth(Double.MAX_VALUE);
         sub.setMaxWidth(Double.MAX_VALUE);
     }

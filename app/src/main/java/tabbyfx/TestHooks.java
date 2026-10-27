@@ -22,8 +22,11 @@ public final class TestHooks {
         });
         // a restored tab: shown asleep, Enter wakes it, its shell starts in the saved folder, a cd is noticed
         if (o.testWake) Thread.ofPlatform().daemon().start(() -> {
-            Bench.sleep(1500);
-            Platform.runLater(() -> report(app, scene, "before Enter"));
+            Bench.sleep(1200);
+            // as if the tab list had been clicked: the keys must come back to the tab
+            Platform.runLater(() -> app.list.requestFocus());
+            Bench.sleep(300);
+            Platform.runLater(() -> report(app, scene, "before Enter, after a click on the list"));
             Platform.runLater(() -> press(scene, KeyCode.ENTER, false, false));
             Bench.sleep(4000);
             Platform.runLater(() -> report(app, scene, "after Enter"));
@@ -31,8 +34,39 @@ public final class TestHooks {
             Bench.sleep(2500);
             Platform.runLater(() -> report(app, scene, "after cd"));
         });
+        // Esc reaches the program: cmd clears the line on Esc, so "abc<Esc>x" must leave only "x"
+        if (o.testEsc) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(2500);
+            var canvas = app.selected().widget.getTerminalPanel().getCanvas();
+            Platform.runLater(() -> {
+                typeText(canvas, "abc");
+                fire(canvas, KeyEvent.KEY_PRESSED, KeyEvent.CHAR_UNDEFINED, "", KeyCode.ESCAPE);
+                fire(canvas, KeyEvent.KEY_TYPED, "\u001b", "", KeyCode.UNDEFINED);
+                fire(canvas, KeyEvent.KEY_RELEASED, KeyEvent.CHAR_UNDEFINED, "", KeyCode.ESCAPE);
+                typeText(canvas, "x");
+            });
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                var b = app.selected().widget.getTerminalTextBuffer();
+                b.lock();
+                try { System.err.println("test-esc screen:\n" + b.getScreenLines().strip()); } finally { b.unlock(); }
+            });
+        });
         if (o.snapshot != null) Snapshot.later(scene, o.snapshot, o.snapshotWait);
         if (o.quitAfter > 0) Thread.ofPlatform().daemon().start(() -> { Bench.sleep(o.quitAfter); Platform.runLater(app::quit); });
+    }
+
+    static void typeText(javafx.scene.Node n, String s) {
+        for (var c : s.toCharArray()) {
+            var code = KeyCode.getKeyCode(String.valueOf(Character.toUpperCase(c)));
+            fire(n, KeyEvent.KEY_PRESSED, KeyEvent.CHAR_UNDEFINED, String.valueOf(c), code);
+            fire(n, KeyEvent.KEY_TYPED, String.valueOf(c), "", KeyCode.UNDEFINED);
+            fire(n, KeyEvent.KEY_RELEASED, KeyEvent.CHAR_UNDEFINED, String.valueOf(c), code);
+        }
+    }
+
+    static void fire(javafx.scene.Node n, javafx.event.EventType<KeyEvent> type, String ch, String text, KeyCode code) {
+        Event.fireEvent(n, new KeyEvent(type, ch, text, code, false, false, false, false));
     }
 
     static void report(TabbyApp app, Scene scene, String when) {

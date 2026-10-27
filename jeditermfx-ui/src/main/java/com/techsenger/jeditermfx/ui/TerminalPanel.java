@@ -487,6 +487,14 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         } else if (e.getButton() == MouseButton.MIDDLE && mySettingsProvider.pasteOnMiddleMouseClick()
                 && isLocalMouseAction(e)) {
             handlePasteSelection();
+        } else if (e.getButton() == MouseButton.SECONDARY && !e.isControlDown()) {
+            // tabbyfx: right-click as in the Windows console: copies the selection if there is one, else pastes.
+            // Ctrl+right-click still opens the menu.
+            if (mySelection.get() != null) {
+                handleCopy(true, false);
+            } else {
+                handlePaste();
+            }
         } else if (e.getButton() == MouseButton.SECONDARY) {
             HyperlinkStyle contextHyperlink = findHyperlink(point);
             TerminalActionProvider provider =
@@ -2146,9 +2154,14 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         if (hasUncommittedChars()) {
             return false;
         }
+        if (e.getCharacter().isEmpty() || KeyEvent.CHAR_UNDEFINED.equals(e.getCharacter())) {
+            return false;
+        }
         var keyChar = e.getCharacter().charAt(0);
-        if (e.getCharacter().length() == 0 || !Character.isISOControl((e.getCharacter().codePointAt(0)))) {
-            // keys filtered out here will be processed in processTerminalKeyPressed
+        // tabbyfx: a control character arrives here only when its key press was not handled (a handled press sets
+        // myIgnoreNextKeyTypedEvent). On Windows that is Esc: JavaFX gives its press no text and no key code the
+        // encoder knows, so skipping control characters here dropped Esc altogether.
+        {
             try {
                 return processCharacter(e, keyChar);
             } catch (Exception ex) {

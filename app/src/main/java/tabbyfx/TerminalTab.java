@@ -17,14 +17,17 @@ public final class TerminalTab {
     final StackPane host = new StackPane();
     final Options o;
     final TabbyTheme theme;
-    final List<String> argv;
-    final String cwd;
+    List<String> argv;
+    String cwd;
     JediTermFxWidget widget;
     PtyConnector connector;
     SavedTab sleeping;
     Consumer<TerminalTab> onExit = t -> { };
     Runnable wake = () -> { };
     Button wakeButton;
+    /** The last claude this tab ran, as it would be resumed; kept after that claude exits. */
+    volatile SavedTab lastClaude;
+    volatile long lastClaudePid;
     volatile long ramBytes;
     volatile String liveCwd;
 
@@ -101,6 +104,7 @@ public final class TerminalTab {
             s.title = title.get();
             s.cwd = connector.promptCwd != null ? connector.promptCwd : cwd;
             s.shell = SavedTab.shellOf(argv);
+            s.lastClaude = lastClaude;
             return s;
         }));
     }
@@ -123,7 +127,28 @@ public final class TerminalTab {
         restore.setOnAction(e -> wake.run());
         var later = new Label("Leaving it asleep costs nothing; another tab can be chosen instead.");
         later.setStyle(fg + " -fx-opacity: 0.5; -fx-font-size: 12;");
-        var box = new VBox(14, head, what, restore, later);
+        var box = new VBox(14, head, what, restore);
+        var last = s.claude() ? null : s.lastClaude;
+        Runnable resumeLast = () -> { };
+        if (last != null) {
+            // the shell had run claude and it was ended before tabbly closed: offer that session too
+            var lastWhat = new Label("Or resume the claude session this tab ran last" + (last.title != null ? " (" + last.title + ")" : "")
+                    + ":\n    " + last.commandLine() + "\nin:\n    " + last.cwd);
+            lastWhat.setStyle(what.getStyle());
+            lastWhat.setWrapText(true);
+            var resume = new Button("Resume that claude session (F3)");
+            resume.setStyle("-fx-font-size: 13; -fx-padding: 6 14 6 14;");
+            resumeLast = () -> {
+                argv = last.command();
+                cwd = last.cwd;
+                wake.run();
+            };
+            var go = resumeLast;
+            resume.setOnAction(e -> go.run());
+            box.getChildren().addAll(lastWhat, resume);
+        }
+        box.getChildren().add(later);
+        var f3 = resumeLast;
         box.setPadding(new Insets(40));
         box.setMaxWidth(900);
         box.setAlignment(Pos.TOP_LEFT);
@@ -131,9 +156,11 @@ public final class TerminalTab {
         var armedAt = new long[] {Long.MAX_VALUE};
         box.sceneProperty().addListener((ov, was, now) -> { if (now != null) armedAt[0] = System.currentTimeMillis() + 700; });
         box.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() != KeyCode.ENTER && e.getCode() != KeyCode.F2 && e.getCode() != KeyCode.SPACE) return;
+            var k = e.getCode();
+            if (k != KeyCode.ENTER && k != KeyCode.F2 && k != KeyCode.F3 && k != KeyCode.SPACE) return;
             e.consume();
-            if (e.getCode() != KeyCode.SPACE && System.currentTimeMillis() >= armedAt[0]) wake.run();
+            if (k == KeyCode.SPACE || System.currentTimeMillis() < armedAt[0]) return;
+            if (k == KeyCode.F3) f3.run(); else wake.run();
         });
         wakeButton = restore;
         StackPane.setAlignment(box, Pos.TOP_LEFT);

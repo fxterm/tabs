@@ -14,7 +14,7 @@ public final class Options {
     int tabs = 1, scrollback = 5000, fps = 30, bench = 0, hibernateFreeMb = 2048, hibernateIdleMin = 30;
     long benchWait = 20_000, benchGap = 150, benchPromptWait = 3_000, snapshotWait = 8_000, quitAfter = 0;
     double font = 0;
-    boolean offscreen, benchExit, restore = true, wakeAll, testKeys, testWake, serve;
+    boolean offscreen, benchExit, restore = true, wakeAll, testKeys, testWake, testEsc, serve;
     String shell = "cmd.exe", family = "Consolas", theme = "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd;
 
     static Options parse(List<String> args) {
@@ -48,6 +48,7 @@ public final class Options {
                 case "--wake-all" -> o.wakeAll = Boolean.parseBoolean(v);
                 case "--test-keys" -> o.testKeys = Boolean.parseBoolean(v);
                 case "--test-wake" -> o.testWake = Boolean.parseBoolean(v);
+                case "--test-esc" -> o.testEsc = Boolean.parseBoolean(v);
                 case "--serve" -> o.serve = Boolean.parseBoolean(v);
                 case "--quit-after" -> o.quitAfter = Long.parseLong(v);
                 case "--snapshot-wait" -> o.snapshotWait = Long.parseLong(v);

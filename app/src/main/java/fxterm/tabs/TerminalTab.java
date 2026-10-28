@@ -135,6 +135,7 @@ public final class TerminalTab {
         // a woken claude tab knows its session from the start, so it is never saved without it (see snapshot)
         if (sleeping != null && sleeping.claude() && lastClaude == null) lastClaude = sleeping;
         sleeping = null;
+        screenText = null;
         asleep.set(false);
     }
 
@@ -182,6 +183,16 @@ public final class TerminalTab {
             s.shell = SavedTab.shellOf(argv);
         }
         return decorate(s);
+    }
+
+    /** A sleeping tab's saved text, and its style without the font size, so a size change can reach it. */
+    TextArea screenText;
+    String screenStyle;
+
+    /** The font size changed (TabsApp.fontSize): the terminal refits, a sleeping tab's text follows. */
+    void fontChanged() {
+        if (widget != null) widget.getTerminalPanel().fontChanged();
+        if (screenText != null) screenText.setStyle(screenStyle + " -fx-font-size: " + FontSize.get() + ";");
     }
 
     /** Ends the process and frees the widget; keeps the saved form so the tab can start again. In its place the tab
@@ -234,9 +245,11 @@ public final class TerminalTab {
             var text = new TextArea(s.screen);
             text.setEditable(false);
             text.setFocusTraversable(false);
-            text.setStyle("-fx-control-inner-background: " + theme.background + "; -fx-background-color: " + theme.background + ";"
+            screenStyle = "-fx-control-inner-background: " + theme.background + "; -fx-background-color: " + theme.background + ";"
                     + " -fx-text-fill: " + theme.foreground + "; -fx-opacity: 0.7; -fx-background-insets: 0; -fx-focus-color: transparent;"
-                    + " -fx-faint-focus-color: transparent; -fx-font-size: " + (o.font > 0 ? o.font : theme.fontSize) + ";" + mono);
+                    + " -fx-faint-focus-color: transparent;" + mono;
+            screenText = text;
+            text.setStyle(screenStyle + " -fx-font-size: " + FontSize.get() + ";");
             // the end of the text is what the screen showed
             text.sceneProperty().addListener((ov, was, now) -> { if (now != null) javafx.application.Platform.runLater(() -> text.setScrollTop(Double.MAX_VALUE)); });
             shot = text;

@@ -11,6 +11,33 @@ public final class TestHooks {
 
     static void start(TabsWindow app, Scene scene, Options o) {
         if (o.bench > 0) new Bench(app.selected(), o).run();
+        // font size: Ctrl+= twice, Ctrl+- once, Ctrl+wheel up one notch, Ctrl+0; the size and the shown grid after each
+        if (o.testFont != null) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(2500);
+            Runnable show = () -> {
+                var t = app.selected();
+                var grid = t != null && t.widget != null ? t.widget.getTerminalPanel().getTerminalSizeFromComponent() : null;
+                System.err.println("test-font: size " + FontSize.get() + ", grid " + (grid == null ? "-" : grid.getColumns() + "x" + grid.getRows()));
+            };
+            Platform.runLater(show);
+            for (var k : List.of(KeyCode.EQUALS, KeyCode.EQUALS, KeyCode.MINUS)) {
+                Bench.sleep(600);
+                Platform.runLater(() -> { press(scene, k, true, false); show.run(); });
+            }
+            Bench.sleep(600);
+            Platform.runLater(() -> {
+                var c = app.content;
+                var b = c.localToScene(c.getLayoutBounds());
+                Event.fireEvent(c, new ScrollEvent(ScrollEvent.SCROLL, b.getCenterX(), b.getCenterY(), b.getCenterX(), b.getCenterY(),
+                        false, true, false, false, false, false, 0, 40, 0, 40, ScrollEvent.HorizontalTextScrollUnits.NONE, 0,
+                        ScrollEvent.VerticalTextScrollUnits.NONE, 0, 0, new PickResult(c, b.getCenterX(), b.getCenterY())));
+                show.run();
+            });
+            Bench.sleep(1500);
+            Platform.runLater(() -> Snapshot.write(scene, o.testFont + "-big.png"));
+            Bench.sleep(600);
+            Platform.runLater(() -> { press(scene, KeyCode.DIGIT0, true, false); show.run(); });
+        });
         if (o.testKeys) Thread.ofPlatform().daemon().start(() -> {
             for (var k : List.of(KeyCode.T, KeyCode.T, KeyCode.TAB, KeyCode.W, KeyCode.W)) {
                 Bench.sleep(1500);

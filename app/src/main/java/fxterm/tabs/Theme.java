@@ -8,7 +8,6 @@ import javafx.scene.text.Font;
 /** The widget's settings: Tabby's colours, a capped scrollback, no bell. */
 public final class Theme extends DefaultSettingsProvider {
 
-    final double size;
     final String family;
     final int scrollback, fps;
     final TerminalColor fg, bg;
@@ -16,7 +15,6 @@ public final class Theme extends DefaultSettingsProvider {
 
     Theme(TabbyTheme t, Options o) {
         this.family = o.family;
-        this.size = o.font > 0 ? o.font : t.fontSize;
         this.scrollback = o.scrollback;
         this.fps = o.fps;
         this.fg = color(t.foreground);
@@ -29,8 +27,9 @@ public final class Theme extends DefaultSettingsProvider {
         return new TerminalColor((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff);
     }
 
-    @Override public Font getTerminalFont() { return Font.font(family, size); }
-    @Override public float getTerminalFontSize() { return (float) size; }
+    /** The size is read each time, so a change with Ctrl+= / Ctrl+- or pinch reaches every tab (see FontSize). */
+    @Override public Font getTerminalFont() { return Font.font(family, FontSize.get()); }
+    @Override public float getTerminalFontSize() { return (float) FontSize.get(); }
     @Override public ColorPalette getTerminalColorPalette() { return palette; }
     @Override public TextStyle getDefaultStyle() { return new TextStyle(fg, bg); }
     @Override public TerminalColor getDefaultBackground() { return bg; }

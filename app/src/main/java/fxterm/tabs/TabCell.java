@@ -172,6 +172,8 @@ public final class TabCell extends ListCell<TerminalTab> {
             state.setStyle(t.ramBytes > 0 ? ramBadge(t) : "");
         } else {
             state.setText(null);
+            // the badge's fill goes too, or a reused row shows it behind the moon
+            state.setStyle("");
             state.setGraphic(moon);
         }
         var ram = t.live() ? Mem.mb(t.ramBytes) : "asleep";

@@ -14,7 +14,8 @@ import javafx.stage.*;
  *  shown tab is attached and painting. Several windows can be open in one process: a tab dragged out of a window, or
  *  sent with "Move to window", moves with its process still running, and a window left with no tabs vanishes.
  *  Keys (see keys()): Ctrl+Shift+T new tab, Ctrl+Shift+N new window, Ctrl+Shift+W close, Ctrl+Tab / Ctrl+Shift+Tab,
- *  Alt or Ctrl+1..9, Ctrl+Shift+PgUp/PgDn move, Ctrl+Shift+E compose, F11 full screen. */
+ *  Alt or Ctrl+1..9, Ctrl+Shift+PgUp/PgDn move, Ctrl+Shift+E compose, F11 full screen, Ctrl+= / Ctrl+- / Ctrl+0
+ *  font size (also Ctrl+wheel and pinch over the terminal). */
 public final class TabsWindow {
 
     final TabsApp app;
@@ -61,6 +62,25 @@ public final class TabsWindow {
         scene.getPreferences().setColorScheme(theme.dark() ? javafx.application.ColorScheme.DARK : javafx.application.ColorScheme.LIGHT);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::keys);
         scene.addEventFilter(KeyEvent.ANY, e -> IdleTrim.activity());
+        // font size by gesture: a touch screen's pinch arrives as zoom events, a touchpad's pinch on Windows as
+        // Ctrl+wheel, which is also the mouse's way
+        var pinch = new double[] {1};
+        scene.addEventFilter(ZoomEvent.ZOOM_STARTED, e -> pinch[0] = FontSize.get());
+        scene.addEventFilter(ZoomEvent.ZOOM, e -> {
+            if (inside(e.getPickResult().getIntersectedNode(), content)) { app.fontSize(pinch[0] * e.getTotalZoomFactor()); e.consume(); }
+        });
+        // a wheel notch is 40; a touchpad pinch sends many small deltas, so they are added up to a notch per step
+        var wheel = new double[] {0};
+        scene.addEventFilter(ScrollEvent.SCROLL, e -> {
+            if (!e.isControlDown() || e.getDeltaY() == 0 || !inside(e.getPickResult().getIntersectedNode(), content)) return;
+            wheel[0] += e.getDeltaY();
+            var steps = (int) (wheel[0] / 40);
+            if (steps != 0) {
+                wheel[0] -= steps * 40;
+                app.fontSize(FontSize.get() + steps * FontSize.STEP);
+            }
+            e.consume();
+        });
         // the keys always belong to the shown tab: a click in the tab list, or coming back to the window, must not
         // leave them with the list or with nothing
         scene.focusOwnerProperty().addListener((ov, was, now) -> { if (now == null || inside(now, sidebar.node)) focusSoon(); });
@@ -134,7 +154,10 @@ public final class TabsWindow {
         else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
         else if ((alt || ctrlOnly) && code.isDigitKey() && code != KeyCode.DIGIT0 && code != KeyCode.NUMPAD0)
             select(code.getCode() - (code.isKeypadKey() ? KeyCode.NUMPAD1 : KeyCode.DIGIT1).getCode());
-        else if (code == KeyCode.F11 && !e.isControlDown() && !e.isAltDown() && !e.isShiftDown()) stage.setFullScreen(!stage.isFullScreen());
+        else if (e.isControlDown() && !e.isAltDown() && (code == KeyCode.EQUALS || code == KeyCode.PLUS || code == KeyCode.ADD))app.fontSize(FontSize.get() + FontSize.STEP);
+        else if (ctrlOnly && (code == KeyCode.MINUS || code == KeyCode.SUBTRACT)) app.fontSize(FontSize.get() - FontSize.STEP);
+        else if (ctrlOnly && (code == KeyCode.DIGIT0 || code == KeyCode.NUMPAD0)) app.fontSize(FontSize.base);
+        else if (code == KeyCode.F11 &&!e.isControlDown() && !e.isAltDown() && !e.isShiftDown()) stage.setFullScreen(!stage.isFullScreen());
         else return;
         e.consume();
     }

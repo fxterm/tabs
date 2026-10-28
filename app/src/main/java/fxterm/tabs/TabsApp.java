@@ -23,6 +23,8 @@ public final class TabsApp extends Application {
     public void start(Stage first) throws Exception {
         options = Options.parse(getParameters().getRaw());
         theme = TabbyTheme.load(options.theme);
+        // a test run (off-screen or its own state file) neither reads nor writes the user's saved size
+        FontSize.init(options.font > 0 ? options.font : theme.fontSize, !options.offscreen && options.state == null);
         store = new SessionStore(options);
         history = new History(options);
         var states = options.offscreen || options.state != null ? List.of(new WindowState()) : WindowState.loadAll();
@@ -141,6 +143,13 @@ public final class TabsApp extends Application {
         var busy = which.stream().filter(TerminalTab::live).flatMap(t -> ClaudeProbe.of(t.connector.process.pid()).stream())
                 .filter(c -> !c.idle()).map(c -> c.name != null ? c.name : c.sessionId).toList();
         return busy.isEmpty() || Ui.confirm(owner, "Still working: " + String.join(", ", busy) + ".\n" + consequence);
+    }
+
+    /** Every terminal in every window takes the new font size, keeping its pixel area (so its rows and columns
+     *  change), and so does the text of a sleeping tab. */
+    void fontSize(double size) {
+        if (!FontSize.set(size)) return;
+        for (var t : allTabs()) t.fontChanged();
     }
 
     List<TerminalTab> allTabs() {

@@ -308,6 +308,12 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         sizeTerminalFromComponent();
     }
 
+    /** fxterm-tabs fork: the settings' font size changed; take it, refit the grid to the same pixels, redraw. */
+    public void fontChanged() {
+        reinitFontAndResize();
+        repaint();
+    }
+
     protected void initFont() {
         myNormalFont = createFont();
         myBoldFont = Font.font(myNormalFont.getFamily(), FontWeight.BOLD, myNormalFont.getSize());

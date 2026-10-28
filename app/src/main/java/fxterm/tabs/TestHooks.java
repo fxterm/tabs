@@ -119,6 +119,20 @@ public final class TestHooks {
                         + app.selected().live() + " in " + app.selected().where() + ", history view closed " + !app.historyShown());
             });
         });
+        // the order of rows: drops before or after a row, a new tab placed after the shown one
+        if (o.testOrder) Thread.ofPlatform().daemon().start(() -> {
+            Runnable order = () -> System.err.println("test-order:   " + app.tabs.stream().map(t -> t.separator ? "[" + t.shown() + "]" : t.shown()).toList());
+            Bench.sleep(1200);
+            Platform.runLater(() -> {
+                System.err.println("test-order: start"); order.run();
+                var a = app.tabs.get(1); var code = app.tabs.get(2); var b = app.tabs.get(3);
+                app.drop(b, app.tabs.indexOf(code), false); System.err.println("test-order: b dropped on the top half of CODE"); order.run();
+                app.drop(b, app.tabs.indexOf(code), true); System.err.println("test-order: b back under CODE"); order.run();
+                app.drop(a, app.tabs.indexOf(code), true); System.err.println("test-order: a dropped on the bottom half of CODE"); order.run();
+                app.drop(code, app.tabs.indexOf(a), false); System.err.println("test-order: CODE dropped on the top half of a"); order.run();
+                app.list.getSelectionModel().select(a); app.add(); System.err.println("test-order: new tab from a"); order.run();
+            });
+        });
         // separators: never chosen, not counted, skipped by Ctrl+Tab, kept on save
         if (o.testSeparators) Thread.ofPlatform().daemon().start(() -> {
             Runnable chosen = () -> System.err.println("test-separators:   chosen " + (app.selected() == null ? "none" : app.selected().where()));

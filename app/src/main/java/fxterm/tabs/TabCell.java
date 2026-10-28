@@ -1,7 +1,8 @@
 package fxterm.tabs;
 
 import module java.base;
-import javafx.geometry.Pos;
+import javafx.geometry.*;
+import javafx.scene.paint.Color;
 import javafx.scene.control.*;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
@@ -73,15 +74,30 @@ public final class TabCell extends ListCell<TerminalTab> {
             db.setContent(c);
             e.consume();
         });
+        // the drop goes before this row (pointer in its top half) or after it (bottom half); a line shows which
         setOnDragOver(e -> {
-            if (e.getGestureSource() instanceof TabCell src && src != this) e.acceptTransferModes(TransferMode.MOVE);
+            if (e.getGestureSource() instanceof TabCell src && src != this) {
+                e.acceptTransferModes(TransferMode.MOVE);
+                var after = e.getY() > getHeight() / 2;
+                var line = side.theme.colors.get(4);
+                setBorder(new Border(new BorderStroke(after ? Color.TRANSPARENT : Color.web(line), Color.TRANSPARENT,
+                        after ? Color.web(line) : Color.TRANSPARENT, Color.TRANSPARENT, BorderStrokeStyle.SOLID, BorderStrokeStyle.NONE,
+                        BorderStrokeStyle.SOLID, BorderStrokeStyle.NONE, CornerRadii.EMPTY, new BorderWidths(3, 0, 3, 0), Insets.EMPTY)));
+            }
             e.consume();
         });
+        setOnDragExited(e -> setBorder(null));
+        // a press on a separator only starts a drag: it must not try to select the separator, whose "cannot be
+        // chosen" correction redraws the list under the drag
+        addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> { if (getItem() != null && getItem().separator && e.isPrimaryButtonDown()) e.consume(); });
         setOnDragDropped(e -> {
             if (e.getGestureSource() instanceof TabCell src && src.getItem() != null) {
-                var at = isEmpty() || getItem() == null ? Integer.MAX_VALUE : getIndex();
-                // within this window it is a reorder; from another window the tab moves here, still running
-                if (src.side == side) side.app.move(src.getItem(), at);
+                setBorder(null);
+                var after = e.getY() > getHeight() / 2;
+                var at = isEmpty() || getItem() == null ? Integer.MAX_VALUE : getIndex() + (after ? 1 : 0);
+                // within this window it is a reorder (taking the tab out first shifts the rows below it up by one);
+                // from another window the tab moves here, still running
+                if (src.side == side) side.app.drop(src.getItem(), getIndex(), after);
                 else side.app.app.moveTo(src.getItem(), side.app, at);
                 e.setDropCompleted(true);
             }

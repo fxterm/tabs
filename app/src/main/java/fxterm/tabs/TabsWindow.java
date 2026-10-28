@@ -356,8 +356,21 @@ public final class TabsWindow {
         footer.update(t, tabs, app.allTabs(), app.ram == null ? 0 : app.ram.selfBytes);
     }
 
+    /** A row dragged onto row `row` of this window, before it or after it: the list order the user sees, with the
+     *  dragged row's own place taken out first (rows below it move up by one). */
+    void drop(TerminalTab t, int row, boolean after) {
+        var at = row + (after ? 1 : 0);
+        if (tabs.indexOf(t) < at) at--;
+        move(t, at);
+    }
+
+    /** A new tab right after the shown one, so it lands in the same group (under the same separator). */
     void add() {
-        list.getSelectionModel().select(adopt(app.wire(TerminalTab.fresh(options, theme))));
+        var t = app.wire(TerminalTab.fresh(options, theme));
+        var at = selected() == null ? tabs.size() : tabs.indexOf(selected()) + 1;
+        tabs.add(at, t);
+        t.owner = this;
+        list.getSelectionModel().select(t);
     }
 
     void close(TerminalTab t) {

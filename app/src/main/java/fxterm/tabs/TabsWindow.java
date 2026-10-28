@@ -301,6 +301,12 @@ public final class TabsWindow {
         var t = selected();
         stage.setTitle(t == null ? "Tabs" : "Tabs - " + t.shown() + " (" + t.where() + ")");
         list.refresh();
+        // the terminal's border and the divider take the active tab's colour, so tab and terminal read as one
+        var frame = Ui.frame(theme, t == null ? null : t.color.get());
+        content.setStyle("-fx-border-color: " + frame + "; -fx-border-width: " + Ui.FRAME + " " + Ui.FRAME + " " + Ui.FRAME + " 0;"
+                + " -fx-background-color: " + theme.background + ";");
+        split.lookupAll(".split-pane-divider").forEach(d -> d.setStyle("-fx-background-color: " + frame + "; -fx-background-insets: 0; -fx-border-width: 0; -fx-padding: 0 "
+                + (Ui.FRAME / 2.0) + " 0 " + (Ui.FRAME / 2.0) + ";"));
         footer.update(t, tabs, app.allTabs(), app.ram == null ? 0 : app.ram.selfBytes);
     }
 

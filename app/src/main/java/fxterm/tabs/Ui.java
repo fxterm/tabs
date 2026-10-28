@@ -11,7 +11,7 @@ public final class Ui {
 
     static String sidebar(TabbyTheme t) {
         return "-fx-background-color: " + shade(t.background, -10) + "; -fx-control-inner-background: " + shade(t.background, -10)
-                + "; -fx-border-color: transparent; -fx-background-insets: 0; -fx-padding: 4 0 0 0;";
+                + "; -fx-border-width: 0; -fx-background-insets: 0; -fx-padding: 4 0 0 0;";
     }
 
     /** What inline styles cannot reach (the split divider, every scroll bar, the list's focus ring), as a stylesheet
@@ -48,11 +48,26 @@ public final class Ui {
     /** A tab row. A coloured tab keeps its colour as the side bar and a faint tint; otherwise the bar shows only on the
      *  selected tab, in the theme's blue. */
     static String cell(TabbyTheme t, boolean selected, String colour) {
-        var base = selected ? shade(t.background, 14) : shade(t.background, -10);
-        var bar = colour != null ? colour : selected ? t.colors.get(4) : "transparent";
-        var fill = colour != null ? mix(base, colour, selected ? 0.28 : 0.16) : base;
+        if (selected) {
+            // the active tab is filled with the frame colour, which also borders its terminal: one shape
+            var frame = frame(t, colour);
+            return "-fx-padding: 3 2 3 4; -fx-border-width: 0 0 0 3; -fx-border-color: " + (colour != null ? colour : frame)
+                    + "; -fx-background-color: " + frame + ";";
+        }
+        var base = shade(t.background, -10);
+        var bar = colour != null ? colour : "transparent";
+        var fill = colour != null ? mix(base, colour, 0.16) : base;
         return "-fx-padding: 3 2 3 4; -fx-border-width: 0 0 0 3; -fx-border-color: " + bar + "; -fx-background-color: " + fill + ";";
     }
+
+    /** The colour that joins the active tab to its terminal: the tab's own colour, toned down so white text stays
+     *  readable on it, or a calm blue for a tab without one. */
+    static String frame(TabbyTheme t, String colour) {
+        return mix(t.background, colour != null ? colour : t.colors.get(4), colour != null ? 0.55 : 0.45);
+    }
+
+    /** The border around the shown terminal, in the active tab's frame colour. */
+    static final int FRAME = 5;
 
     static String mix(String a, String b, double amount) {
         var x = TabbyTheme.rgb(a);

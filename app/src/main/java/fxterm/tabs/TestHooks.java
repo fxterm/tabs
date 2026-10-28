@@ -20,6 +20,20 @@ public final class TestHooks {
                         + "/" + app.tabs.size() + ", focus on " + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName())));
             }
         });
+        // Ctrl+2 jumps to tab 2, then "Restore all" wakes every sleeping tab
+        if (o.testWakeAll) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                Event.fireEvent(scene.getFocusOwner() != null ? scene.getFocusOwner() : scene.getRoot(),
+                        new KeyEvent(KeyEvent.KEY_PRESSED, KeyEvent.CHAR_UNDEFINED, "", KeyCode.DIGIT2, false, true, false, false));
+                System.err.println("test-wakeall: after Ctrl+2 tab " + (app.tabs.indexOf(app.selected()) + 1));
+                app.wakeAll();
+            });
+            Bench.sleep(2500);
+            Platform.runLater(() -> System.err.println("test-wakeall: live " + app.tabs.stream().filter(TerminalTab::live).count()
+                    + " of " + app.tabs.size() + ", button shown " + app.sidebar.restoreAll.isVisible() + ", focus on "
+                    + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName())));
+        });
         // a restored tab: shown asleep, Enter wakes it, its shell starts in the saved folder, a cd is noticed
         if (o.testWake) Thread.ofPlatform().daemon().start(() -> {
             Bench.sleep(1200);

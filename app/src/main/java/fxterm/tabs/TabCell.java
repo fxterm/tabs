@@ -22,11 +22,11 @@ public final class TabCell extends ListCell<TerminalTab> {
     TabCell(Sidebar side) {
         this.side = side;
         var t = side.theme;
-        number.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.55; -fx-font-size: 13; -fx-font-weight: bold;");
+        number.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 13; -fx-font-weight: bold;");
         name.setStyle("-fx-text-fill: " + t.foreground + "; -fx-font-size: 15; -fx-font-weight: bold;");
         sub.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.6; -fx-font-size: 12;");
         close.setStyle("-fx-background-color: transparent; -fx-text-fill: " + t.foreground + "; -fx-font-size: 14; -fx-padding: 0 4 0 4; -fx-cursor: hand;");
-        ramStyle = "-fx-text-fill: " + t.colors.get(2) + "; -fx-font-size: 10.5; -fx-font-weight: bold; -fx-opacity: 0.85;";
+        ramStyle = "-fx-text-fill: #ffffff; -fx-font-size: 10.5; -fx-font-weight: bold;";
         close.setFocusTraversable(false);
         close.visibleProperty().bind(hoverProperty());
         close.setOnAction(e -> { if (getItem() != null) side.app.close(getItem()); });
@@ -37,7 +37,12 @@ public final class TabCell extends ListCell<TerminalTab> {
         moon.setFitWidth(20);
         moon.setFitHeight(20);
         moon.setSmooth(true);
-        var corner = new VBox(1, number, state);
+        // the moon or the RAM sits centred in the space left under the number
+        var mark = new StackPane(state);
+        mark.setAlignment(Pos.CENTER);
+        VBox.setVgrow(mark, Priority.ALWAYS);
+        var corner = new VBox(0, number, mark);
+        corner.setFillWidth(true);
         corner.setMinWidth(30);
         corner.setPrefWidth(30);
         corner.setAlignment(Pos.TOP_LEFT);

@@ -118,13 +118,15 @@ public final class TabsApp extends Application {
     void keys(KeyEvent e) {
         var ctrlShift = e.isControlDown() && e.isShiftDown() && !e.isAltDown();
         var alt = e.isAltDown() && !e.isControlDown() && !e.isShiftDown();
+        var ctrlOnly = e.isControlDown() && !e.isAltDown() && !e.isShiftDown();
         var code = e.getCode();
         if (ctrlShift && code == KeyCode.T) add();
         else if (ctrlShift && code == KeyCode.W) close(selected());
         else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
             move(selected(), tabs.indexOf(selected()) + (code == KeyCode.PAGE_UP ? -1 : 1));
         else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
-        else if (alt && code.isDigitKey() && code != KeyCode.DIGIT0) select(code.getCode() - KeyCode.DIGIT1.getCode());
+        else if ((alt || ctrlOnly) && code.isDigitKey() && code != KeyCode.DIGIT0 && code != KeyCode.NUMPAD0)
+            select(code.getCode() - (code.isKeypadKey() ? KeyCode.NUMPAD1 : KeyCode.DIGIT1).getCode());
         else if (code == KeyCode.F11 && !e.isControlDown() && !e.isAltDown() && !e.isShiftDown()) stage.setFullScreen(!stage.isFullScreen());
         else return;
         e.consume();
@@ -175,6 +177,18 @@ public final class TabsApp extends Application {
         return false;
     }
 
+    /** "Restore all": starts every sleeping tab (claude sessions resume with their flags); the shown tab stays shown. */
+    void wakeAll() {
+        for (var t : List.copyOf(tabs)) if (t.sleeping != null) start(t);
+        var shown = selected();
+        if (shown != null) {
+            content.getChildren().setAll(shown.host);
+            paint();
+        }
+        refresh();
+        focusSoon();
+    }
+
     /** The user asked a sleeping tab to restore. */
     void wake(TerminalTab t) {
         start(t);
@@ -195,6 +209,7 @@ public final class TabsApp extends Application {
         stage.setTitle(t == null ? "Tabs" : "Tabs - " + t.shown() + " (" + t.where() + ")");
         list.refresh();
         footer.update(t, tabs, ram == null ? 0 : ram.selfBytes);
+        sidebar.update(tabs, ram == null ? 0 : ram.selfBytes);
     }
 
     void add() {

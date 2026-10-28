@@ -43,9 +43,33 @@ public final class Sidebar {
         plus.setStyle(Ui.plus(theme));
         plus.setTooltip(new Tooltip("New tab (Ctrl+Shift+T)"));
         plus.setOnAction(e -> app.add());
-        node = new VBox(list, plus);
+        // a thin strip above the tabs: everything's RAM together, and waking every sleeping tab at once
+        total.setStyle("-fx-text-fill: " + theme.foreground + "; -fx-font-size: 12; -fx-font-weight: bold;");
+        total.setTooltip(new Tooltip("RAM of Tabs itself plus every live tab's shell and the program it runs (claude)"));
+        restoreAll.setFocusTraversable(false);
+        restoreAll.setStyle("-fx-background-color: " + theme.colors.get(4) + "; -fx-text-fill: #ffffff; -fx-font-size: 11.5;"
+                + " -fx-padding: 2 8 2 8; -fx-background-radius: 4; -fx-cursor: hand;");
+        restoreAll.setOnAction(e -> app.wakeAll());
+        var gap = new Region();
+        HBox.setHgrow(gap, Priority.ALWAYS);
+        var strip = new HBox(6, total, gap, restoreAll);
+        strip.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        strip.setStyle("-fx-padding: 4 6 6 8;");
+        node = new VBox(strip, list, plus);
         node.setStyle(Ui.sidebar(theme));
         node.setMinWidth(120);
+    }
+
+    final Label total = new Label();
+    final Button restoreAll = new Button();
+
+    /** The strip's figures; the button shows only while some tab is asleep. */
+    void update(List<TerminalTab> tabs, long selfBytes) {
+        var asleep = tabs.stream().filter(t -> !t.live()).count();
+        total.setText("RAM " + Mem.mb(selfBytes + tabs.stream().mapToLong(t -> t.live() ? t.ramBytes : 0).sum()));
+        restoreAll.setText("Restore all (" + asleep + ")");
+        restoreAll.setVisible(asleep > 0);
+        restoreAll.setManaged(asleep > 0);
     }
 
     ContextMenu menu(TerminalTab t) {

@@ -67,6 +67,22 @@ public final class TitleBar {
         }
     }
 
+    /** Where the mouse is now, in JavaFX screen units (Windows reports device pixels; the primary screen's scale turns
+     *  them back). A drag that ended outside every window asks this to place the new window. */
+    static double[] cursor() {
+        try (var arena = Arena.ofConfined()) {
+            var get = Linker.nativeLinker().downcallHandle(SymbolLookup.libraryLookup("user32", arena).find("GetCursorPos").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+            var point = arena.allocate(8);
+            if ((int) get.invoke(point) == 0) return null;
+            var scale = javafx.stage.Screen.getPrimary().getOutputScaleX();
+            return new double[] {point.get(ValueLayout.JAVA_INT, 0) / scale, point.get(ValueLayout.JAVA_INT, 4) / scale};
+        } catch (Throwable e) {
+            System.err.println("fxterm-tabs: cursor position unknown: " + e);
+            return null;
+        }
+    }
+
     /** Windows wants 0x00BBGGRR. */
     static int colorref(String hex) {
         var rgb = TabbyTheme.rgb(hex);

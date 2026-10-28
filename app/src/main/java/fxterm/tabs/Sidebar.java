@@ -4,6 +4,7 @@ import module java.base;
 import javafx.beans.binding.Bindings;
 import javafx.collections.ObservableList;
 import javafx.scene.control.*;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.*;
 
 /** The tab list on the left. The list is only as tall as its tabs, so the + button sits right under the last one;
@@ -22,12 +23,12 @@ public final class Sidebar {
         COLOURS.put("Cyan", 6);
     }
 
-    final TabsApp app;
+    final TabsWindow app;
     final TabbyTheme theme;
     final ListView<TerminalTab> list;
     final VBox node;
 
-    Sidebar(TabsApp app, ObservableList<TerminalTab> tabs, TabbyTheme theme) {
+    Sidebar(TabsWindow app, ObservableList<TerminalTab> tabs, TabbyTheme theme) {
         this.app = app;
         this.theme = theme;
         list = new ListView<>(tabs);
@@ -43,6 +44,18 @@ public final class Sidebar {
         plus.setStyle(Ui.plus(theme));
         plus.setTooltip(new Tooltip("New tab (Ctrl+Shift+T)"));
         plus.setOnAction(e -> app.add());
+        // a tab dropped on the list but below the last tab goes to the end; from another window too
+        list.setOnDragOver(e -> {
+            if (e.getGestureSource() instanceof TabCell) e.acceptTransferModes(TransferMode.MOVE);
+            e.consume();
+        });
+        list.setOnDragDropped(e -> {
+            if (e.getGestureSource() instanceof TabCell src && src.getItem() != null) {
+                app.app.moveTo(src.getItem(), app, Integer.MAX_VALUE);
+                e.setDropCompleted(true);
+            }
+            e.consume();
+        });
         node = new VBox(list, plus);
         node.setStyle(Ui.sidebar(theme));
         node.setMinWidth(120);
@@ -84,6 +97,21 @@ public final class Sidebar {
         var others = new MenuItem("Close other tabs");
         others.setOnAction(e -> app.closeTabs(app.tabs.stream().filter(x -> x != t).toList()));
         others.setDisable(app.tabs.size() < 2);
+        // send the tab to another window of this process, or to a new one; it keeps running
+        var moveTo = new Menu("Move to window");
+        var others2 = app.app.windows.stream().filter(w -> w != app).toList();
+        for (var w : others2) {
+            var shown = w.selected();
+            var item = new MenuItem("Window " + (app.app.windows.indexOf(w) + 1) + " (" + w.tabs.size() + " tabs"
+                    + (shown != null ? ", showing " + shown.shown() : "") + ")");
+            item.setOnAction(e -> app.app.moveTo(t, w, Integer.MAX_VALUE));
+            moveTo.getItems().add(item);
+        }
+        if (!others2.isEmpty()) moveTo.getItems().add(new SeparatorMenuItem());
+        var fresh = new MenuItem("New window");
+        fresh.setOnAction(e -> app.app.newWindow(t, Double.NaN, Double.NaN, app));
+        moveTo.getItems().add(fresh);
+        icon(moveTo, "↗");
         // small grey symbols, one per item, all in one tone so the menu stays calm
         icon(copyDir, "🗀");
         icon(copyCmd, "⧉");
@@ -95,7 +123,7 @@ public final class Sidebar {
         icon(above, "↥");
         icon(below, "↧");
         icon(others, "⊠");
-        return new ContextMenu(copyDir, copyCmd, new SeparatorMenuItem(), rename, colour, duplicate, sleep,
+        return new ContextMenu(copyDir, copyCmd, new SeparatorMenuItem(), rename, colour, duplicate, sleep, moveTo,
                 new SeparatorMenuItem(), close, above, below, others);
     }
 

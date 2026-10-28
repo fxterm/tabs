@@ -2,220 +2,154 @@ package fxterm.tabs;
 
 import module java.base;
 import javafx.application.*;
-import javafx.collections.*;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.image.Image;
-import javafx.scene.input.*;
-import javafx.scene.layout.*;
 import javafx.stage.*;
 
-/** Tabs listed down the left, as Tabby shows them; only the selected tab is attached and painting.
- *  Keys (see keys()): Ctrl+Shift+T new, Ctrl+Shift+W close, Ctrl+Tab / Ctrl+Shift+Tab, Alt+1..9, F11 full screen. */
+/** The process: one or more windows (TabsWindow) sharing the settings, the RAM watch and the hibernator. Closing
+ *  saves every tab of every window, with the window it was in; the next start brings the windows back. */
 public final class TabsApp extends Application {
 
     static Request request;
 
-    final ObservableList<TerminalTab> tabs = FXCollections.observableArrayList();
-    final StackPane content = new StackPane();
-    final SplitPane split = new SplitPane();
-    ListView<TerminalTab> list;
-    Sidebar sidebar;
-    WindowState window;
+    final List<TabsWindow> windows = new ArrayList<>();
     Options options;
     TabbyTheme theme;
     SessionStore store;
-    Footer footer;
-    Composer composer;
-    /** Under the terminal: the compose box when open, then the footer. */
-    final VBox bottom = new VBox();
     RamWatch ram;
-    Stage stage;
+    /** Where a tab from another launch (Tabby's open / run) goes. */
+    TabsWindow lastFocused;
 
     @Override
-    public void start(Stage stage) throws Exception {
-        this.stage = stage;
+    public void start(Stage first) throws Exception {
         options = Options.parse(getParameters().getRaw());
         theme = TabbyTheme.load(options.theme);
         store = new SessionStore(options);
-        footer = new Footer(this, theme);
-        composer = new Composer(this, theme);
-        window = options.offscreen || options.state != null ? new WindowState() : WindowState.load();
-        sidebar = new Sidebar(this, tabs, theme);
-        list = sidebar.list;
-        list.getSelectionModel().selectedItemProperty().addListener((ov, was, now) -> show(now));
-        stage.iconifiedProperty().addListener((ov, was, now) -> paint());
-
-        (options.restore ? store.load() : List.<SavedTab>of()).forEach(s -> adopt(TerminalTab.restored(options, theme, s)));
-        var asked = request != null && !"show".equals(request.kind) ? adopt(TerminalTab.of(options, theme, request)) : null;
-        if (tabs.isEmpty()) for (var i = 0; i < options.tabs; i++) adopt(TerminalTab.fresh(options, theme));
-
-        var scene = new Scene(layout(), window.width, window.height);
-        scene.getStylesheets().add(Ui.stylesheet(theme));
-        // JavaFX sets the title bar dark or light from this itself, overriding any DWM call made without it
-        scene.getPreferences().setColorScheme(theme.dark() ? javafx.application.ColorScheme.DARK : javafx.application.ColorScheme.LIGHT);
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, this::keys);
-        scene.addEventFilter(KeyEvent.ANY, e -> IdleTrim.activity());
-        // the keys always belong to the shown tab: a click in the tab list, or coming back to the window, must not
-        // leave them with the list or with nothing
-        scene.focusOwnerProperty().addListener((ov, was, now) -> { if (now == null || inside(now, sidebar.node)) focusSoon(); });
-        stage.focusedProperty().addListener((ov, was, now) -> { if (now) focusSoon(); });
-        sidebar.list.addEventHandler(javafx.scene.input.MouseEvent.MOUSE_RELEASED, e -> focusSoon());
-        stage.setScene(scene);
-        stage.getIcons().addAll(new Image(getClass().getResourceAsStream("icon-256.png")), new Image(getClass().getResourceAsStream("icon-32.png")));
-        stage.setOnCloseRequest(e -> { e.consume(); quit(); });
-        if (options.offscreen) {
-            stage.initStyle(StageStyle.UTILITY);
-            stage.setX(-5000);
-            stage.setY(0);
-        } else {
-            window.apply(stage);
-        }
+        var states = options.offscreen || options.state != null ? List.of(new WindowState()) : WindowState.loadAll();
+        var saved = options.restore ? store.load() : List.<SavedTab>of();
+        var count = Math.max(1, saved.stream().mapToInt(s -> s.window + 1).max().orElse(1));
+        for (var i = 0; i < count; i++) windows.add(new TabsWindow(this, i == 0 ? first : new Stage(), state(states, i)));
+        saved.forEach(s -> windows.get(Math.min(Math.max(s.window, 0), count - 1)).adopt(wire(TerminalTab.restored(options, theme, s))));
+        var main = windows.getFirst();
+        var asked = request != null && !"show".equals(request.kind) ? main.adopt(wire(TerminalTab.of(options, theme, request))) : null;
+        if (main.tabs.isEmpty()) for (var i = 0; i < options.tabs; i++) main.adopt(wire(TerminalTab.fresh(options, theme)));
+        windows.removeIf(w -> w.tabs.isEmpty());
         if (!options.offscreen && options.state == null || options.serve) Instance.serve(r -> Platform.runLater(() -> handle(r)));
-        if (options.wakeAll) for (var i = tabs.size() - 1; i >= 0; i--) list.getSelectionModel().select(i);
-        if (asked != null) list.getSelectionModel().select(asked); else list.getSelectionModel().select(0);
-        stage.show();
-        TitleBar.paintSoon(theme);
-        split.setDividerPositions(window.sidebar / stage.getWidth());
+        for (var i = 0; i < windows.size(); i++) {
+            var w = windows.get(i);
+            if (options.wakeAll) for (var j = w.tabs.size() - 1; j >= 0; j--) w.list.getSelectionModel().select(j);
+            if (asked != null && w == main) w.list.getSelectionModel().select(asked);
+            else w.list.getSelectionModel().select(0);
+            w.open(state(states, i));
+        }
+        lastFocused = main;
         IdleTrim.start();
         new Hibernator(this::hidden, options).start();
-        ram = new RamWatch(() -> tabs, this::refresh);
+        ram = new RamWatch(this::allTabs, this::refreshAll);
         ram.start();
-        TestHooks.start(this, scene, options);
+        TestHooks.start(main, main.scene, options);
     }
 
-    /** The tab list and the terminal side by side with a draggable divider; the list keeps its width when the window
-     *  is resized. */
-    BorderPane layout() {
-        split.getItems().setAll(sidebar.node, content);
-        SplitPane.setResizableWithParent(sidebar.node, false);
-        split.setStyle("-fx-background-color: " + Ui.shade(theme.background, -10) + "; -fx-padding: 0; -fx-box-border: transparent;");
-        var root = new BorderPane(split);
-        bottom.getChildren().setAll(footer);
-        root.setBottom(bottom);
-        return root;
+    /** A saved window's place, or one a little below and right of the window before it. */
+    static WindowState state(List<WindowState> states, int i) {
+        if (i < states.size()) return states.get(i);
+        var s = new WindowState();
+        var before = states.isEmpty() ? null : states.getLast();
+        if (before != null && !Double.isNaN(before.x)) {
+            s.x = before.x + 40 * (i - states.size() + 1);
+            s.y = before.y + 40 * (i - states.size() + 1);
+            s.width = before.width;
+            s.height = before.height;
+            s.sidebar = before.sidebar;
+        }
+        return s;
     }
 
-    double sidebarWidth() {
-        return sidebar.node.getWidth();
-    }
-
-    /** Another launch asked for something (Tabby's `open` / `run`, or just to be shown). */
-    void handle(Request r) {
-        if (!"show".equals(r.kind)) list.getSelectionModel().select(adopt(TerminalTab.of(options, theme, r)));
-        if (stage.isIconified()) stage.setIconified(false);
-        stage.toFront();
-    }
-
-    TerminalTab adopt(TerminalTab t) {
-        tabs.add(t);
-        return adoptOnly(t);
-    }
-
-    /** Wires a tab already placed in the list. */
-    TerminalTab adoptOnly(TerminalTab t) {
-        t.onExit = this::exited;
-        t.wake = () -> wake(t);
-        t.title.addListener((ov, was, now) -> refresh());
+    /** What every tab needs whichever window it is in: closing itself when its program exits, waking, a title change
+     *  showing; all go to the window that holds it now. */
+    TerminalTab wire(TerminalTab t) {
+        t.onExit = x -> { if (x.owner != null) x.owner.close(x); };
+        t.wake = () -> { if (t.owner != null) t.owner.wake(t); };
+        t.title.addListener((ov, was, now) -> { if (t.owner != null) t.owner.refresh(); });
         return t;
     }
 
-    /** The program in a tab ended by itself: the tab closes; the last one closes the window. */
-    void exited(TerminalTab t) {
-        close(t);
+    /** Another launch asked for something (Tabby's `open` / `run`, or just to be shown): to the last window used. */
+    void handle(Request r) {
+        var w = windows.contains(lastFocused) ? lastFocused : windows.getFirst();
+        if (!"show".equals(r.kind)) w.list.getSelectionModel().select(w.adopt(wire(TerminalTab.of(options, theme, r))));
+        if (w.stage.isIconified()) w.stage.setIconified(false);
+        w.stage.toFront();
     }
 
-    void keys(KeyEvent e) {
-        var ctrlShift = e.isControlDown() && e.isShiftDown() && !e.isAltDown();
-        var alt = e.isAltDown() && !e.isControlDown() && !e.isShiftDown();
-        var ctrlOnly = e.isControlDown() && !e.isAltDown() && !e.isShiftDown();
-        var code = e.getCode();
-        if (ctrlShift && code == KeyCode.T) add();
-        else if (ctrlShift && code == KeyCode.W) close(selected());
-        else if (ctrlShift && code == KeyCode.E) toggleCompose();
-        else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
-            move(selected(), tabs.indexOf(selected()) + (code == KeyCode.PAGE_UP ? -1 : 1));
-        else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
-        else if ((alt || ctrlOnly) && code.isDigitKey() && code != KeyCode.DIGIT0 && code != KeyCode.NUMPAD0)
-            select(code.getCode() - (code.isKeypadKey() ? KeyCode.NUMPAD1 : KeyCode.DIGIT1).getCode());
-        else if (code == KeyCode.F11 && !e.isControlDown() && !e.isAltDown() && !e.isShiftDown()) stage.setFullScreen(!stage.isFullScreen());
-        else return;
-        e.consume();
+    /** A new window: with the given tab moved into it (dragged out, or "Move to window > New window"), or with a fresh
+     *  tab; placed at the given screen point, or a little off the window it came from. */
+    TabsWindow newWindow(TerminalTab t, double x, double y, TabsWindow from) {
+        var ws = new WindowState();
+        ws.width = from.stage.getWidth();
+        ws.height = from.stage.getHeight();
+        ws.sidebar = from.sidebarWidth();
+        ws.x = Double.isNaN(x) ? from.stage.getX() + 40 : x - 100;
+        ws.y = Double.isNaN(y) ? from.stage.getY() + 40 : y - 20;
+        var w = new TabsWindow(this, new Stage(), ws);
+        windows.add(w);
+        if (t != null && t.owner != null) t.owner.take(t);
+        w.put(t != null ? t : wire(TerminalTab.fresh(options, theme)), 0);
+        w.open(ws);
+        lastFocused = w;
+        return w;
     }
 
-    void step(int by) {
-        if (!tabs.isEmpty()) list.getSelectionModel().select(Math.floorMod(list.getSelectionModel().getSelectedIndex() + by, tabs.size()));
-    }
-
-    void select(int i) {
-        if (i >= 0 && i < tabs.size()) list.getSelectionModel().select(i);
-    }
-
-    /** Shows a tab. A new tab starts here; a sleeping one shows what waking it would run and waits to be asked
-     *  (see wake), so a restored session starts only for a tab the user actually wants back. */
-    void show(TerminalTab t) {
-        if (t == null || moving) return;
-        if (t.sleeping == null || options.wakeAll) start(t);
-        content.getChildren().setAll(t.host);
-        paint();
-        refresh();
-        Platform.runLater(t::focus);
-    }
-
-    /** Puts a tab at another place in the list (drag and drop, Ctrl+Shift+PgUp/PgDn); the shown tab stays shown. */
-    void move(TerminalTab t, int to) {
-        var shown = selected();
-        moving = true;
-        try {
-            tabs.remove(t);
-            tabs.add(Math.clamp(to, 0, tabs.size()), t);
-            list.getSelectionModel().select(shown);
-        } finally {
-            moving = false;
+    /** A tab sent to another window (dropped on its tab list, or "Move to window"): it keeps running. */
+    void moveTo(TerminalTab t, TabsWindow to, int index) {
+        if (t.owner == to) {
+            to.move(t, index);
+            return;
         }
-        refresh();
-        focusSoon();
+        if (t.owner != null) t.owner.take(t);
+        to.put(t, index);
+        to.stage.toFront();
     }
 
-    boolean moving;
-
-    void focusSoon() {
-        Platform.runLater(() -> { var t = selected(); if (t != null) t.focus(); });
-    }
-
-    static boolean inside(javafx.scene.Node n, javafx.scene.Node parent) {
-        for (var p = n; p != null; p = p.getParent()) if (p == parent) return true;
-        return false;
-    }
-
-    /** Opens the compose box under the terminal (pushing it up) and puts the cursor in it; closes it again. */
-    void toggleCompose() {
-        if (bottom.getChildren().contains(composer)) {
-            bottom.getChildren().remove(composer);
-            focusSoon();
-        } else {
-            bottom.getChildren().addFirst(composer);
-            Platform.runLater(composer.text::requestFocus);
+    /** A window with no tabs left vanishes; the last one quits (saving, as closing does). */
+    void emptied(TabsWindow w) {
+        if (windows.size() <= 1) {
+            quit();
+            return;
         }
+        windows.remove(w);
+        w.stage.close();
+        if (lastFocused == w) lastFocused = windows.getFirst();
     }
 
-    /** Everything the shown tab shows and holds, as text (its saved text when asleep). */
-    void copyText() {
-        var t = selected();
-        if (t == null) return;
-        var text = t.live() ? t.screenText() : t.sleeping == null ? null : t.sleeping.screen;
-        if (text != null) copy(text);
+    /** The window's own close button: the last window quits (everything saved); another window closes with its tabs,
+     *  after asking if any claude in it would be ended. */
+    void closeWindow(TabsWindow w) {
+        if (windows.size() <= 1) {
+            quit();
+            return;
+        }
+        var all = List.copyOf(w.tabs);
+        if (!okToEnd(w.stage, all, "Closing this window ends its " + all.size() + " tabs (claude conversations stay on disk"
+                + " and can be resumed).")) return;
+        all.forEach(w::close);
     }
 
-    void paste() {
-        var t = selected();
-        if (t != null && t.live()) t.widget.getTerminalPanel().handlePaste();
-        focusSoon();
+    /** True when none of the tabs has claude mid-reply, or the user agreed to end them anyway. */
+    static boolean okToEnd(Stage owner, List<TerminalTab> which, String consequence) {
+        var busy = which.stream().filter(TerminalTab::live).flatMap(t -> ClaudeProbe.of(t.connector.process.pid()).stream())
+                .filter(c -> !c.idle()).map(c -> c.name != null ? c.name : c.sessionId).toList();
+        return busy.isEmpty() || Ui.confirm(owner, "Still working: " + String.join(", ", busy) + ".\n" + consequence);
     }
 
-    void find() {
-        var t = selected();
-        if (t != null && t.live()) t.widget.showFindComponent();
+    List<TerminalTab> allTabs() {
+        return windows.stream().flatMap(w -> w.tabs.stream()).toList();
+    }
+
+    List<TerminalTab> hidden() {
+        return windows.stream().flatMap(w -> w.hidden().stream()).toList();
+    }
+
+    void refreshAll() {
+        windows.forEach(TabsWindow::refresh);
     }
 
     void copy(String text) {
@@ -233,114 +167,31 @@ public final class TabsApp extends Application {
         });
     }
 
-    /** A new tab with a fresh shell in the same folder. */
-    void duplicate(TerminalTab t) {
-        var copy = new TerminalTab(options, theme, ClaudeProbe.tokens(options.shell), t.where());
-        tabs.add(tabs.indexOf(t) + 1, copy);
-        adoptOnly(copy);
-        list.getSelectionModel().select(copy);
-    }
-
-    /** Puts one live tab to sleep now, as RAM pressure would: saved (claude session and flags, its text), process ended. */
-    void hibernate(TerminalTab t) {
-        Thread.ofPlatform().daemon().start(() -> {
-            var saved = t.snapshot(ClaudeProbe.commandLines());
-            Platform.runLater(() -> {
-                if (saved == null || !t.live()) return;
-                t.sleep(saved);
-                if (t == selected()) show(t);
-                refresh();
-            });
-        });
-    }
-
-    /** Closes the given tabs (close, close above/below/others), asking first if any of them has claude mid-reply. */
-    void closeTabs(List<TerminalTab> which) {
-        if (which.isEmpty()) return;
-        var busy = which.stream().filter(TerminalTab::live).flatMap(t -> ClaudeProbe.of(t.connector.process.pid()).stream())
-                .filter(c -> !c.idle()).map(c -> c.name != null ? c.name : c.sessionId).toList();
-        if (!busy.isEmpty() && !Ui.confirm(stage, "Still working: " + String.join(", ", busy)
-                + ".\nClosing ends them mid-reply (the conversation stays on disk and can be resumed).")) return;
-        which.forEach(this::close);
-    }
-
-    /** "Restore all": starts every sleeping tab (claude sessions resume with their flags); the shown tab stays shown. */
-    void wakeAll() {
-        for (var t : List.copyOf(tabs)) if (t.sleeping != null) start(t);
-        var shown = selected();
-        if (shown != null) {
-            content.getChildren().setAll(shown.host);
-            paint();
-        }
-        refresh();
-        focusSoon();
-    }
-
-    /** The user asked a sleeping tab to restore. */
-    void wake(TerminalTab t) {
-        start(t);
-        if (t == selected()) show(t);
-    }
-
-    void start(TerminalTab t) {
-        try {
-            t.start();
-        } catch (IOException ex) {
-            System.err.println("fxterm-tabs: cannot start tab: " + ex);
-        }
-    }
-
-    /** Window title, side list and footer, after a title, RAM or selection change. */
-    void refresh() {
-        var t = selected();
-        stage.setTitle(t == null ? "Tabs" : "Tabs - " + t.shown() + " (" + t.where() + ")");
-        list.refresh();
-        footer.update(t, tabs, ram == null ? 0 : ram.selfBytes);
-    }
-
-    void add() {
-        list.getSelectionModel().select(adopt(TerminalTab.fresh(options, theme)));
-    }
-
-    void close(TerminalTab t) {
-        if (t == null) return;
-        var i = tabs.indexOf(t);
-        var wasSelected = t == selected();
-        tabs.remove(t);
-        t.close();
-        if (tabs.isEmpty()) { quit(); return; }
-        // closing the shown tab shows the one that took its place (or the one above, for the last), and types into it
-        if (wasSelected) list.getSelectionModel().clearAndSelect(Math.min(i, tabs.size() - 1));
-        var now = selected();
-        if (now != null) Platform.runLater(now::focus);
-    }
-
-    TerminalTab selected() {
-        return list.getSelectionModel().getSelectedItem();
-    }
-
-    List<TerminalTab> hidden() {
-        return tabs.stream().filter(t -> t != selected() && t.live()).toList();
-    }
-
-    void paint() {
-        var shown = !stage.isIconified();
-        tabs.forEach(t -> t.painting(shown && t == selected()));
-    }
-
-    /** Saves every tab (claude sessions with their id and flags), asks first if any claude is mid-turn, then ends all. */
+    /** Saves every tab of every window (claude sessions with their id and flags, which window it was in), asks first
+     *  if any claude is mid-turn, then ends all. */
     void quit() {
+        var snapshot = new ArrayList<TabsWindow>(windows);
+        var owner = (lastFocused != null ? lastFocused : snapshot.getFirst()).stage;
         Thread.ofPlatform().daemon().start(() -> {
             var lines = ClaudeProbe.commandLines();
-            var busy = tabs.stream().filter(TerminalTab::live).flatMap(t -> ClaudeProbe.of(t.connector.process.pid()).stream())
+            var all = snapshot.stream().flatMap(w -> w.tabs.stream()).toList();
+            var saved = new ArrayList<SavedTab>();
+            for (var i = 0; i < snapshot.size(); i++) {
+                for (var t : snapshot.get(i).tabs) {
+                    var s = t.snapshot(lines);
+                    if (s == null) continue;
+                    s.window = i;
+                    saved.add(s);
+                }
+            }
+            var busy = all.stream().filter(TerminalTab::live).flatMap(t -> ClaudeProbe.of(t.connector.process.pid()).stream())
                     .filter(c -> !c.idle()).map(c -> c.name != null ? c.name : c.sessionId).toList();
-            var saved = tabs.stream().map(t -> t.snapshot(lines)).filter(Objects::nonNull).toList();
             Platform.runLater(() -> {
-                if (!busy.isEmpty() && !Ui.confirm(stage, "Still working: " + String.join(", ", busy)
+                if (!busy.isEmpty() && !Ui.confirm(owner, "Still working: " + String.join(", ", busy)
                         + ".\nClosing ends them mid-turn. They are saved and resume when their tab is opened again.")) return;
                 store.save(saved);
-                tabs.forEach(TerminalTab::close);
-                if (!options.offscreen && options.state == null) WindowState.save(stage, sidebarWidth());
+                all.forEach(TerminalTab::close);
+                if (!options.offscreen && options.state == null) WindowState.saveAll(snapshot);
                 if (!options.offscreen && options.state == null || options.serve) Instance.release();
                 Platform.exit();
                 System.exit(0);

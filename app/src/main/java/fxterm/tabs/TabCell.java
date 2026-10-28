@@ -74,15 +74,28 @@ public final class TabCell extends ListCell<TerminalTab> {
             e.consume();
         });
         setOnDragOver(e -> {
-            if (e.getGestureSource() instanceof TabCell src && src != this && src.side == side) e.acceptTransferModes(TransferMode.MOVE);
+            if (e.getGestureSource() instanceof TabCell src && src != this) e.acceptTransferModes(TransferMode.MOVE);
             e.consume();
         });
         setOnDragDropped(e -> {
             if (e.getGestureSource() instanceof TabCell src && src.getItem() != null) {
-                side.app.move(src.getItem(), isEmpty() || getItem() == null ? Integer.MAX_VALUE : getIndex());
+                var at = isEmpty() || getItem() == null ? Integer.MAX_VALUE : getIndex();
+                // within this window it is a reorder; from another window the tab moves here, still running
+                if (src.side == side) side.app.move(src.getItem(), at);
+                else side.app.app.moveTo(src.getItem(), side.app, at);
                 e.setDropCompleted(true);
             }
             e.consume();
+        });
+        // dropped where nothing took it: outside every window it opens in a new window there, as a browser does
+        setOnDragDone(e -> {
+            var tab = getItem();
+            if (e.getTransferMode() != null || tab == null || tab.owner == null) return;
+            var at = TitleBar.cursor();
+            if (at == null) return;
+            var st = tab.owner.stage;
+            var outside = at[0] < st.getX() || at[0] > st.getX() + st.getWidth() || at[1] < st.getY() || at[1] > st.getY() + st.getHeight();
+            if (outside) side.app.app.newWindow(tab, at[0], at[1], tab.owner);
         });
         name.setMaxWidth(Double.MAX_VALUE);
         sub.setMaxWidth(Double.MAX_VALUE);

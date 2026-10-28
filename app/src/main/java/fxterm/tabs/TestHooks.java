@@ -9,7 +9,7 @@ import javafx.scene.input.*;
 /** Everything only unattended tests use: benchmark, scripted keys, a scene snapshot, a timed quit. */
 public final class TestHooks {
 
-    static void start(TabsApp app, Scene scene, Options o) {
+    static void start(TabsWindow app, Scene scene, Options o) {
         if (o.bench > 0) new Bench(app.selected(), o).run();
         if (o.testKeys) Thread.ofPlatform().daemon().start(() -> {
             for (var k : List.of(KeyCode.T, KeyCode.T, KeyCode.TAB, KeyCode.W, KeyCode.W)) {
@@ -56,6 +56,35 @@ public final class TestHooks {
                 System.err.println("test-compose: output seen " + text.lines().anyMatch(l -> l.strip().equals("COMPOSE-OK"))
                         + ", box closed " + !app.bottom.getChildren().contains(app.composer) + ", focus on "
                         + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName()));
+            });
+        });
+        // windows: a tab out into a new window (still the same process), back again (the empty window vanishes), split
+        // again for the save
+        if (o.testWindows) Thread.ofPlatform().daemon().start(() -> {
+            var a = app.app;
+            Runnable state = () -> System.err.println("test-windows:   " + a.windows.size() + " windows "
+                    + a.windows.stream().map(w -> w.tabs.stream().map(TerminalTab::where).toList()).toList());
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                app.wakeAll();
+                var second = app.tabs.get(1);
+                var pid = second.connector.process.pid();
+                a.newWindow(second, 300, 300, app);
+                System.err.println("test-windows: tab 2 to a new window; same process " + (second.live() && second.connector.process.pid() == pid));
+                state.run();
+            });
+            Bench.sleep(2000);
+            Platform.runLater(() -> {
+                var w2 = a.windows.get(1);
+                a.moveTo(w2.tabs.getFirst(), a.windows.getFirst(), Integer.MAX_VALUE);
+                System.err.println("test-windows: moved back");
+                state.run();
+            });
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                a.newWindow(app.tabs.get(2), 400, 400, app);
+                System.err.println("test-windows: split again");
+                state.run();
             });
         });
         // the tab menu's actions, on plain shells
@@ -126,7 +155,7 @@ public final class TestHooks {
             });
         });
         if (o.snapshot != null) Snapshot.later(scene, o.snapshot, o.snapshotWait);
-        if (o.quitAfter > 0) Thread.ofPlatform().daemon().start(() -> { Bench.sleep(o.quitAfter); Platform.runLater(app::quit); });
+        if (o.quitAfter > 0) Thread.ofPlatform().daemon().start(() -> { Bench.sleep(o.quitAfter); Platform.runLater(app.app::quit); });
     }
 
     static void typeText(javafx.scene.Node n, String s) {
@@ -142,7 +171,7 @@ public final class TestHooks {
         Event.fireEvent(n, new KeyEvent(type, ch, text, code, false, false, false, false));
     }
 
-    static void report(TabsApp app, Scene scene, String when) {
+    static void report(TabsWindow app, Scene scene, String when) {
         var t = app.selected();
         System.err.println("test-wake: " + when + ": " + (t.live() ? "live" : "asleep") + ", where " + t.where()
                 + ", focus on " + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName()));

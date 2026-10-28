@@ -11,9 +11,9 @@ import javafx.scene.layout.*;
 public final class Composer extends VBox {
 
     final TextArea text = new TextArea();
-    final TabsApp app;
+    final TabsWindow app;
 
-    Composer(TabsApp app, TabbyTheme theme) {
+    Composer(TabsWindow app, TabbyTheme theme) {
         this.app = app;
         text.setPrefRowCount(6);
         text.setWrapText(true);

@@ -25,6 +25,8 @@ public final class TerminalTab {
     SavedTab sleeping;
     Consumer<TerminalTab> onExit = t -> { };
     Runnable wake = () -> { };
+    /** The window holding it now; changes when the tab is moved to another window. */
+    TabsWindow owner;
     Button wakeButton;
     /** The last claude this tab ran, as it would be resumed; kept after that claude exits. */
     volatile SavedTab lastClaude;

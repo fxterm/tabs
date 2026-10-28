@@ -12,7 +12,7 @@ public final class Footer extends HBox {
     final Label all = new Label(), self = new Label(), where = new Label();
     final Button restoreAll, copyText, paste, find, compose;
 
-    Footer(TabsApp app, TabbyTheme theme) {
+    Footer(TabsWindow app, TabbyTheme theme) {
         setStyle(Ui.footer(theme));
         setAlignment(Pos.CENTER_LEFT);
         setSpacing(12);
@@ -53,10 +53,12 @@ public final class Footer extends HBox {
         return b;
     }
 
-    void update(TerminalTab selected, List<TerminalTab> tabs, long selfBytes) {
+    /** tabs: this window's (for Restore all); every: all windows' (for the RAM total). */
+    void update(TerminalTab selected, List<TerminalTab> tabs, List<TerminalTab> every, long selfBytes) {
+        var everyLive = every.stream().filter(TerminalTab::live).count();
+        var total = every.stream().mapToLong(t -> t.live() ? t.ramBytes : 0).sum();
+        all.setText("All tabs " + Mem.mb(total) + "  (" + everyLive + " live, " + (every.size() - everyLive) + " asleep)");
         var live = tabs.stream().filter(TerminalTab::live).count();
-        var total = tabs.stream().mapToLong(t -> t.live() ? t.ramBytes : 0).sum();
-        all.setText("All tabs " + Mem.mb(total) + "  (" + live + " live, " + (tabs.size() - live) + " asleep)");
         self.setText("Tabs app " + Mem.mb(selfBytes));
         if (!where.getText().startsWith("copied: ")) where.setText(selected == null ? "" : selected.where());
         restoreAll.setText("Restore all (" + (tabs.size() - live) + ")");

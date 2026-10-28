@@ -3,6 +3,7 @@ package fxterm.tabs;
 import module java.base;
 import javafx.beans.property.*;
 import javafx.geometry.*;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
@@ -75,7 +76,29 @@ public final class TerminalTab {
     SavedTab decorate(SavedTab s) {
         s.customTitle = custom.get();
         s.color = color.get();
+        var text = screenText();
+        if (text != null) s.screen = text;
         return s;
+    }
+
+    /** What the tab shows and holds now, as plain text, so it can be shown while asleep and searched in history. */
+    String screenText() {
+        var w = widget;
+        if (w == null) return null;
+        var b = w.getTerminalTextBuffer();
+        b.lock();
+        String all;
+        try {
+            var history = b.getHistoryBuffer().getLines();
+            all = (history.isEmpty() ? "" : history + "\n") + b.getScreenLines();
+        } finally {
+            b.unlock();
+        }
+        var lines = new ArrayList<String>();
+        for (var line : all.split("\n", -1)) lines.add(line.stripTrailing());
+        while (!lines.isEmpty() && lines.getLast().isEmpty()) lines.removeLast();
+        var from = Math.max(0, lines.size() - SavedTab.SCREEN_LINES);
+        return String.join("\n", lines.subList(from, lines.size()));
     }
 
     void start() throws IOException {
@@ -121,28 +144,28 @@ public final class TerminalTab {
         sleeping = s;
         title.set(s.title);
         asleep.set(true);
+        // a bar saying what waking runs, with the buttons; under it the tab as it looked, dimmed, selectable to copy
         var fg = "-fx-text-fill: " + theme.foreground + ";";
-        var head = new Label("This tab is asleep" + (s.claude() ? ": claude session " + s.claudeSessionId : "") + ".");
-        head.setStyle(fg + " -fx-font-size: 16;");
-        var what = new Label("Restoring it runs:\n    " + s.commandLine() + "\nin:\n    " + (s.cwd != null ? s.cwd : System.getProperty("user.home")));
-        what.setStyle(fg + " -fx-opacity: 0.8; -fx-font-size: 13; -fx-font-family: '" + o.family + "';");
+        var mono = " -fx-font-family: '" + o.family + "';";
+        var moon = new javafx.scene.image.ImageView(TabCell.SLEEPING);
+        moon.setFitWidth(22);
+        moon.setFitHeight(22);
+        var head = new Label("Asleep" + (s.claude() ? ": claude session " + s.claudeSessionId : ""));
+        head.setStyle(fg + " -fx-font-size: 14; -fx-font-weight: bold;");
+        var what = new Label(s.commandLine() + "   in   " + (s.cwd != null ? s.cwd : System.getProperty("user.home")));
+        what.setStyle(fg + " -fx-opacity: 0.75; -fx-font-size: 12;" + mono);
         what.setWrapText(true);
-        var restore = new Button("Restore this tab (Enter or F2)");
-        restore.setStyle("-fx-font-size: 13; -fx-background-color: " + theme.colors.get(4) + "; -fx-text-fill: #ffffff; -fx-padding: 6 14 6 14;");
+        var restore = new Button("Restore (Enter or F2)");
+        restore.setStyle("-fx-font-size: 12.5; -fx-background-color: " + theme.colors.get(4) + "; -fx-text-fill: #ffffff; -fx-padding: 4 12 4 12;");
         restore.setOnAction(e -> wake.run());
-        var later = new Label("Leaving it asleep costs nothing; another tab can be chosen instead.");
-        later.setStyle(fg + " -fx-opacity: 0.5; -fx-font-size: 12;");
-        var box = new VBox(14, head, what, restore);
+        var buttons = new HBox(8, restore);
         var last = s.claude() ? null : s.lastClaude;
         Runnable resumeLast = () -> { };
         if (last != null) {
             // the shell had run claude and it was ended before fxterm-tabs closed: offer that session too
-            var lastWhat = new Label("Or resume the claude session this tab ran last" + (last.title != null ? " (" + last.title + ")" : "")
-                    + ":\n    " + last.commandLine() + "\nin:\n    " + last.cwd);
-            lastWhat.setStyle(what.getStyle());
-            lastWhat.setWrapText(true);
-            var resume = new Button("Resume that claude session (F3)");
-            resume.setStyle("-fx-font-size: 13; -fx-padding: 6 14 6 14;");
+            var resume = new Button("Resume its last claude" + (last.title != null ? " (" + last.title + ")" : "") + " (F3)");
+            resume.setStyle("-fx-font-size: 12.5; -fx-padding: 4 12 4 12;");
+            resume.setTooltip(new Tooltip(last.commandLine() + "\nin " + last.cwd));
             resumeLast = () -> {
                 lastClaude = last;
                 argv = last.command();
@@ -151,12 +174,33 @@ public final class TerminalTab {
             };
             var go = resumeLast;
             resume.setOnAction(e -> go.run());
-            box.getChildren().addAll(lastWhat, resume);
+            buttons.getChildren().add(resume);
         }
-        box.getChildren().add(later);
         var f3 = resumeLast;
-        box.setPadding(new Insets(40));
-        box.setMaxWidth(900);
+        var titleRow = new HBox(8, moon, head);
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+        var bar = new VBox(6, titleRow, what, buttons);
+        bar.setPadding(new Insets(10, 14, 10, 14));
+        bar.setStyle("-fx-background-color: " + Ui.shade(theme.background, 10) + ";");
+        Node shot;
+        if (s.screen != null && !s.screen.isBlank()) {
+            var text = new TextArea(s.screen);
+            text.setEditable(false);
+            text.setFocusTraversable(false);
+            text.setStyle("-fx-control-inner-background: " + theme.background + "; -fx-background-color: " + theme.background + ";"
+                    + " -fx-text-fill: " + theme.foreground + "; -fx-opacity: 0.7; -fx-background-insets: 0; -fx-focus-color: transparent;"
+                    + " -fx-faint-focus-color: transparent; -fx-font-size: " + (o.font > 0 ? o.font : theme.fontSize) + ";" + mono);
+            // the end of the text is what the screen showed
+            text.sceneProperty().addListener((ov, was, now) -> { if (now != null) javafx.application.Platform.runLater(() -> text.setScrollTop(Double.MAX_VALUE)); });
+            shot = text;
+        } else {
+            var none = new Label("No saved screen for this tab (it was saved before screens were kept).");
+            none.setStyle(fg + " -fx-opacity: 0.5; -fx-font-size: 12;");
+            none.setPadding(new Insets(14));
+            shot = none;
+        }
+        VBox.setVgrow(shot, Priority.ALWAYS);
+        var box = new VBox(0, bar, shot);
         box.setAlignment(Pos.TOP_LEFT);
         // a keystroke typed into the previous tab just before switching must not wake this one
         var armedAt = new long[] {Long.MAX_VALUE};

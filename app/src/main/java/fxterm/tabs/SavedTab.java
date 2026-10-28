@@ -12,6 +12,10 @@ public final class SavedTab {
     /** For a plain shell: the claude it ran last, ended before fxterm-tabs closed; offered on waking. */
     public SavedTab lastClaude;
     public long savedAt = System.currentTimeMillis();
+    /** The tab's text when it was saved: up to SCREEN_LINES lines of scrollback plus the screen, trailing blanks cut. */
+    public String screen;
+
+    static final int SCREEN_LINES = 1000;
 
     static final Set<String> SHELLS = Set.of("cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe", "wsl.exe");
 

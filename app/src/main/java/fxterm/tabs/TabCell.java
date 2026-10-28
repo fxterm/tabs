@@ -6,15 +6,16 @@ import javafx.scene.control.*;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
 
-/** A tab's row: its number (Alt+number selects it) with a moon under it when asleep or its RAM when live; its name,
- *  and under that its folder; a
- *  close button on hover; the full path on hover too. Re-rendered by ListView.refresh() when anything changes. */
+/** A tab's row. Left: its number (Alt/Ctrl+number selects it) with a moon under it when asleep or its RAM when live
+ *  (hovering the RAM turns it into a Zz button that hibernates the tab). Then three lines: the title, the folder's
+ *  name, the full path in small type. A close button on hover. Re-rendered by ListView.refresh() when anything changes. */
 public final class TabCell extends ListCell<TerminalTab> {
 
     final Sidebar side;
     /** The corner under the number: a sleeping tab's moon, or a live tab's RAM. Drawn at twice its shown size. */
     static final javafx.scene.image.Image SLEEPING = new javafx.scene.image.Image(TabCell.class.getResourceAsStream("asleep.png"));
-    final Label number = new Label(), name = new Label(), sub = new Label(), state = new Label();
+    final Label number = new Label(), name = new Label(), sub = new Label(), path = new Label(), state = new Label();
+    final Button sleepNow = new Button("Zz");
     final Button close = new Button("×");
     final HBox row;
     final Tooltip tip = new Tooltip();
@@ -24,13 +25,15 @@ public final class TabCell extends ListCell<TerminalTab> {
         var t = side.theme;
         number.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 13; -fx-font-weight: bold;");
         name.setStyle("-fx-text-fill: " + t.foreground + "; -fx-font-size: 15; -fx-font-weight: bold;");
-        sub.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.6; -fx-font-size: 12;");
-        close.setStyle("-fx-background-color: transparent; -fx-text-fill: " + t.foreground + "; -fx-font-size: 14; -fx-padding: 0 4 0 4; -fx-cursor: hand;");
+        sub.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.7; -fx-font-size: 12;");
+        path.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.45; -fx-font-size: 10.5;");
+        close.setStyle("-fx-background-color: transparent; -fx-text-fill: " + t.foreground + "; -fx-font-size: 19; -fx-font-weight: bold;"
+                + " -fx-padding: 0 6 0 6; -fx-cursor: hand;");
         ramStyle = "-fx-text-fill: #ffffff; -fx-font-size: 10.5; -fx-font-weight: bold;";
         close.setFocusTraversable(false);
         close.visibleProperty().bind(hoverProperty());
         close.setOnAction(e -> { if (getItem() != null) side.app.close(getItem()); });
-        var text = new VBox(2, name, sub);
+        var text = new VBox(-1, name, sub, path);
         text.setMinWidth(0);
         HBox.setHgrow(text, Priority.ALWAYS);
         // number on top, sleep mark or RAM under it, in a narrow column
@@ -38,8 +41,17 @@ public final class TabCell extends ListCell<TerminalTab> {
         moon.setFitHeight(20);
         moon.setSmooth(true);
         // the moon or the RAM sits centred in the space left under the number
-        var mark = new StackPane(state);
+        // hovering the RAM swaps it for a Zz button: one click hibernates the tab
+        sleepNow.setFocusTraversable(false);
+        sleepNow.setVisible(false);
+        sleepNow.setStyle("-fx-background-color: " + t.colors.get(6) + "; -fx-text-fill: #ffffff; -fx-font-size: 10.5;"
+                + " -fx-font-weight: bold; -fx-padding: 0 5 0 5; -fx-background-radius: 3; -fx-cursor: hand;");
+        sleepNow.setTooltip(new Tooltip("Hibernate this tab"));
+        sleepNow.setOnAction(e -> { if (getItem() != null && getItem().live()) side.app.hibernate(getItem()); });
+        var mark = new StackPane(state, sleepNow);
         mark.setAlignment(Pos.CENTER);
+        mark.setOnMouseEntered(e -> { var live = getItem() != null && getItem().live(); sleepNow.setVisible(live); state.setVisible(!live); });
+        mark.setOnMouseExited(e -> { sleepNow.setVisible(false); state.setVisible(true); });
         VBox.setVgrow(mark, Priority.ALWAYS);
         var corner = new VBox(0, number, mark);
         corner.setFillWidth(true);
@@ -74,6 +86,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         });
         name.setMaxWidth(Double.MAX_VALUE);
         sub.setMaxWidth(Double.MAX_VALUE);
+        path.setMaxWidth(Double.MAX_VALUE);
     }
 
     @Override
@@ -92,6 +105,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         var where = t.where();
         var folder = Path.of(where).getFileName();
         sub.setText(folder == null ? where : folder.toString());
+        path.setText(where);
         if (t.live()) {
             state.setGraphic(null);
             state.setText(t.ramBytes > 0 ? shortMb(t.ramBytes) : "");

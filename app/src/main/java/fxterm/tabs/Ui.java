@@ -63,7 +63,16 @@ public final class Ui {
     /** The colour that joins the active tab to its terminal: the tab's own colour (toned down so white text stays
      *  readable on it), or for a tab without one a neutral grey a few steps lighter than the background. */
     static String frame(TabbyTheme t, String colour) {
-        return colour != null ? mix(t.background, colour, 0.55) : shade(t.background, 26);
+        return colour != null ? mix(t.background, colour, 0.45) : shade(t.background, 26);
+    }
+
+    /** White or near-black, whichever has the higher contrast ratio against the fill (WCAG relative luminance). */
+    static String textOn(String fill) {
+        var rgb = TabbyTheme.rgb(fill);
+        java.util.function.DoubleUnaryOperator lin = c -> { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+        var l = 0.2126 * lin.applyAsDouble((rgb >> 16) & 0xff) + 0.7152 * lin.applyAsDouble((rgb >> 8) & 0xff)
+                + 0.0722 * lin.applyAsDouble(rgb & 0xff);
+        return (1.05) / (l + 0.05) >= (l + 0.05) / 0.05 ? "#ffffff" : "#111111";
     }
 
     /** The border around the shown terminal, in the active tab's frame colour. */

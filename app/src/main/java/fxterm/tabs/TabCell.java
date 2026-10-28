@@ -24,10 +24,7 @@ public final class TabCell extends ListCell<TerminalTab> {
     TabCell(Sidebar side) {
         this.side = side;
         var t = side.theme;
-        number.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 13; -fx-font-weight: bold;");
-        name.setStyle("-fx-text-fill: " + t.foreground + "; -fx-font-size: 15; -fx-font-weight: bold;");
-        sub.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.7; -fx-font-size: 12;");
-        path.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.45; -fx-font-size: 10.5;");
+        textOn(false, null);
         close.setStyle("-fx-background-color: transparent; -fx-text-fill: " + t.foreground + "; -fx-font-size: 19; -fx-font-weight: bold;"
                 + " -fx-padding: 0 6 0 6; -fx-cursor: hand;");
         ramStyle = "-fx-text-fill: #ffffff; -fx-font-size: 10.5; -fx-font-weight: bold;";
@@ -182,7 +179,24 @@ public final class TabCell extends ListCell<TerminalTab> {
         setTooltip(tip);
         setContextMenu(null);
         setGraphic(row);
-        setStyle(Ui.cell(side.theme, isSelected(), t.color.get()));
+        paint(isSelected(), t.color.get());
+    }
+
+    /** The row's fill, and text that stays readable on it. */
+    void paint(boolean selected, String colour) {
+        setStyle(Ui.cell(side.theme, selected, colour));
+        textOn(selected, colour);
+    }
+
+    /** On the active tab the text is white or black, whichever stands out more from its fill, and the folder and
+     *  path lines are dimmed less; elsewhere it is the theme's text colour. */
+    void textOn(boolean selected, String colour) {
+        var t = side.theme;
+        var fg = selected ? Ui.textOn(Ui.frame(t, colour)) : colour != null ? Ui.shade(t.foreground, 20) : t.foreground;
+        number.setStyle("-fx-text-fill: " + (selected ? fg : "#ffffff") + "; -fx-font-size: 13; -fx-font-weight: bold;");
+        name.setStyle("-fx-text-fill: " + fg + "; -fx-font-size: 15; -fx-font-weight: bold;");
+        sub.setStyle("-fx-text-fill: " + fg + "; -fx-opacity: " + (selected ? 0.9 : 0.75) + "; -fx-font-size: 12;");
+        path.setStyle("-fx-text-fill: " + fg + "; -fx-opacity: " + (selected ? 0.75 : 0.55) + "; -fx-font-size: 10.5;");
     }
 
     final String ramStyle;
@@ -223,6 +237,6 @@ public final class TabCell extends ListCell<TerminalTab> {
     public void updateSelected(boolean selected) {
         super.updateSelected(selected);
         if (getItem() != null && getItem().separator) return;
-        setStyle(Ui.cell(side.theme, selected && !isEmpty(), isEmpty() || getItem() == null ? null : getItem().color.get()));
+        paint(selected && !isEmpty(), isEmpty() || getItem() == null ? null : getItem().color.get());
     }
 }

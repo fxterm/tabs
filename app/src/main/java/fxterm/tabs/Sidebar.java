@@ -10,7 +10,7 @@ import javafx.scene.layout.*;
  *  past the window's height the list scrolls. Right-click a tab: rename, colour, close. */
 public final class Sidebar {
 
-    static final double ROW = 46;
+    static final double ROW = 52;
     static final Map<String, Integer> COLOURS = new LinkedHashMap<>();
 
     static {

@@ -19,9 +19,9 @@ public final class TabCell extends ListCell<TerminalTab> {
     TabCell(Sidebar side) {
         this.side = side;
         var t = side.theme;
-        number.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.45; -fx-font-size: 12; -fx-min-width: 18;");
-        name.setStyle("-fx-text-fill: " + t.foreground + "; -fx-font-size: 13;");
-        sub.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.55; -fx-font-size: 11;");
+        number.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.55; -fx-font-size: 13; -fx-font-weight: bold; -fx-min-width: 20;");
+        name.setStyle("-fx-text-fill: " + t.foreground + "; -fx-font-size: 15; -fx-font-weight: bold;");
+        sub.setStyle("-fx-text-fill: " + t.foreground + "; -fx-opacity: 0.6; -fx-font-size: 12;");
         close.setStyle("-fx-background-color: transparent; -fx-text-fill: " + t.foreground + "; -fx-font-size: 14; -fx-padding: 0 4 0 4; -fx-cursor: hand;");
         close.setFocusTraversable(false);
         close.visibleProperty().bind(hoverProperty());

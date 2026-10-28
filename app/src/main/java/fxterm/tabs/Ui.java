@@ -60,10 +60,10 @@ public final class Ui {
         return "-fx-padding: 3 2 3 4; -fx-border-width: 0 0 0 3; -fx-border-color: " + bar + "; -fx-background-color: " + fill + ";";
     }
 
-    /** The colour that joins the active tab to its terminal: a neutral grey a few steps lighter than the background,
-     *  the same for every tab (a coloured tab keeps only its stripe), so the colours do not compete with it. */
+    /** The colour that joins the active tab to its terminal: the tab's own colour (toned down so white text stays
+     *  readable on it), or for a tab without one a neutral grey a few steps lighter than the background. */
     static String frame(TabbyTheme t, String colour) {
-        return shade(t.background, 26);
+        return colour != null ? mix(t.background, colour, 0.55) : shade(t.background, 26);
     }
 
     /** The border around the shown terminal, in the active tab's frame colour. */

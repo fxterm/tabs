@@ -20,6 +20,44 @@ public final class TestHooks {
                         + "/" + app.tabs.size() + ", focus on " + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName())));
             }
         });
+        // pictures: the window with the compose box open, and a tab's menu
+        if (o.testLook != null) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(1000);
+            Platform.runLater(app::wakeAll);
+            Bench.sleep(4500);
+            Platform.runLater(() -> {
+                app.toggleCompose();
+                app.composer.text.setText("A message written in the compose box,\nsent to the tab with Ctrl+Enter.");
+                // the figures from the user's example, so the badge colours can be seen side by side
+                var mb = new long[] {266, 318, 398, 17};
+                for (var i = 0; i < Math.min(4, app.tabs.size()); i++) app.tabs.get(i).ramBytes = mb[i] * 1024 * 1024;
+                app.refresh();
+            });
+            Bench.sleep(800);
+            Platform.runLater(() -> Snapshot.write(scene, o.testLook + "-main.png"));
+            Platform.runLater(() -> {
+                var menu = app.sidebar.menu(app.tabs.get(0));
+                menu.show(app.stage);
+                Platform.runLater(() -> Snapshot.write(menu.getScene(), o.testLook + "-menu.png"));
+            });
+        });
+        // the compose box types into the tab: echo a marker, then read the screen
+        if (o.testCompose) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(2500);
+            Platform.runLater(() -> {
+                app.toggleCompose();
+                app.composer.text.setText("echo COMPOSE-" + "OK");
+                app.composer.send(true);
+            });
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                var text = app.selected().screenText();
+                System.err.println("test-compose: last lines:\n" + String.join("\n", text.lines().toList().subList(Math.max(0, (int) text.lines().count() - 4), (int) text.lines().count())));
+                System.err.println("test-compose: output seen " + text.lines().anyMatch(l -> l.strip().equals("COMPOSE-OK"))
+                        + ", box closed " + !app.bottom.getChildren().contains(app.composer) + ", focus on "
+                        + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName()));
+            });
+        });
         // the tab menu's actions, on plain shells
         if (o.testMenu) Thread.ofPlatform().daemon().start(() -> {
             Runnable state = () -> System.err.println("test-menu:   " + app.tabs.stream()
@@ -52,7 +90,7 @@ public final class TestHooks {
             });
             Bench.sleep(2500);
             Platform.runLater(() -> System.err.println("test-wakeall: live " + app.tabs.stream().filter(TerminalTab::live).count()
-                    + " of " + app.tabs.size() + ", button shown " + app.sidebar.restoreAll.isVisible() + ", focus on "
+                    + " of " + app.tabs.size() + ", button shown " + app.footer.restoreAll.isVisible() + ", focus on "
                     + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName())));
         });
         // a restored tab: shown asleep, Enter wakes it, its shell starts in the saved folder, a cd is noticed

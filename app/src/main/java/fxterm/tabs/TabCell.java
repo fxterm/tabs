@@ -43,8 +43,9 @@ public final class TabCell extends ListCell<TerminalTab> {
         VBox.setVgrow(mark, Priority.ALWAYS);
         var corner = new VBox(0, number, mark);
         corner.setFillWidth(true);
-        corner.setMinWidth(30);
-        corner.setPrefWidth(30);
+        corner.setMinWidth(40);
+        corner.setPrefWidth(40);
+        state.setMinWidth(Region.USE_PREF_SIZE);
         corner.setAlignment(Pos.TOP_LEFT);
         row = new HBox(4, corner, text, close);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -94,7 +95,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         if (t.live()) {
             state.setGraphic(null);
             state.setText(t.ramBytes > 0 ? shortMb(t.ramBytes) : "");
-            state.setStyle(ramStyle);
+            state.setStyle(t.ramBytes > 0 ? ramBadge(t) : "");
         } else {
             state.setText(null);
             state.setGraphic(moon);
@@ -109,6 +110,27 @@ public final class TabCell extends ListCell<TerminalTab> {
 
     final String ramStyle;
     final javafx.scene.image.ImageView moon = new javafx.scene.image.ImageView(SLEEPING);
+
+    /** The RAM on a coloured pill: blue under 100 MB, yellow from 100, orange from 200; the tab using the most, once
+     *  past 100 MB, red with a glow, so the heavy one stands out. */
+    String ramBadge(TerminalTab t) {
+        var mb = t.ramBytes / (1024.0 * 1024);
+        var top = side.app.tabs.stream().filter(TerminalTab::live).mapToLong(x -> x.ramBytes).max().orElse(0);
+        String bg, fg = "#ffffff", glow = "";
+        if (t.ramBytes == top && mb >= 100) {
+            bg = "#d64545";
+            glow = " -fx-effect: dropshadow(gaussian, #ff5a5a, 8, 0.45, 0, 0);";
+        } else if (mb >= 200) {
+            bg = "#e07b24";
+        } else if (mb >= 100) {
+            bg = "#d9b23a";
+            fg = "#1a1a1a";
+        } else {
+            bg = "#2f6fd6";
+        }
+        return "-fx-background-color: " + bg + "; -fx-text-fill: " + fg + "; -fx-font-size: 10.5; -fx-font-weight: bold;"
+                + " -fx-padding: 0 3 0 3; -fx-background-radius: 3;" + glow;
+    }
 
     /** 214M, 1.2G: fits under the number. */
     static String shortMb(long bytes) {

@@ -43,33 +43,9 @@ public final class Sidebar {
         plus.setStyle(Ui.plus(theme));
         plus.setTooltip(new Tooltip("New tab (Ctrl+Shift+T)"));
         plus.setOnAction(e -> app.add());
-        // a thin strip above the tabs: everything's RAM together, and waking every sleeping tab at once
-        total.setStyle("-fx-text-fill: " + theme.foreground + "; -fx-font-size: 12; -fx-font-weight: bold;");
-        total.setTooltip(new Tooltip("RAM of Tabs itself plus every live tab's shell and the program it runs (claude)"));
-        restoreAll.setFocusTraversable(false);
-        restoreAll.setStyle("-fx-background-color: " + theme.colors.get(4) + "; -fx-text-fill: #ffffff; -fx-font-size: 11.5;"
-                + " -fx-padding: 2 8 2 8; -fx-background-radius: 4; -fx-cursor: hand;");
-        restoreAll.setOnAction(e -> app.wakeAll());
-        var gap = new Region();
-        HBox.setHgrow(gap, Priority.ALWAYS);
-        var strip = new HBox(6, total, gap, restoreAll);
-        strip.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        strip.setStyle("-fx-padding: 4 6 6 8;");
-        node = new VBox(strip, list, plus);
+        node = new VBox(list, plus);
         node.setStyle(Ui.sidebar(theme));
         node.setMinWidth(120);
-    }
-
-    final Label total = new Label();
-    final Button restoreAll = new Button();
-
-    /** The strip's figures; the button shows only while some tab is asleep. */
-    void update(List<TerminalTab> tabs, long selfBytes) {
-        var asleep = tabs.stream().filter(t -> !t.live()).count();
-        total.setText("RAM " + Mem.mb(selfBytes + tabs.stream().mapToLong(t -> t.live() ? t.ramBytes : 0).sum()));
-        restoreAll.setText("Restore all (" + asleep + ")");
-        restoreAll.setVisible(asleep > 0);
-        restoreAll.setManaged(asleep > 0);
     }
 
     ContextMenu menu(TerminalTab t) {
@@ -108,8 +84,26 @@ public final class Sidebar {
         var others = new MenuItem("Close other tabs");
         others.setOnAction(e -> app.closeTabs(app.tabs.stream().filter(x -> x != t).toList()));
         others.setDisable(app.tabs.size() < 2);
+        // small grey symbols, one per item, all in one tone so the menu stays calm
+        icon(copyDir, "🗀");
+        icon(copyCmd, "⧉");
+        icon(rename, "✎");
+        icon(colour, "◐");
+        icon(duplicate, "❐");
+        icon(sleep, t.live() ? "☾" : "↻");
+        icon(close, "✕");
+        icon(above, "↥");
+        icon(below, "↧");
+        icon(others, "⊠");
         return new ContextMenu(copyDir, copyCmd, new SeparatorMenuItem(), rename, colour, duplicate, sleep,
                 new SeparatorMenuItem(), close, above, below, others);
+    }
+
+    static void icon(MenuItem item, String glyph) {
+        var l = new Label(glyph);
+        l.setStyle("-fx-text-fill: #a0a0a0; -fx-font-family: 'Segoe UI Symbol'; -fx-font-size: 13; -fx-min-width: 18;"
+                + " -fx-alignment: center;");
+        item.setGraphic(l);
     }
 
     void rename(TerminalTab t) {

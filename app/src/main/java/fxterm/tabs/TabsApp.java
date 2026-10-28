@@ -26,6 +26,9 @@ public final class TabsApp extends Application {
     TabbyTheme theme;
     SessionStore store;
     Footer footer;
+    Composer composer;
+    /** Under the terminal: the compose box when open, then the footer. */
+    final VBox bottom = new VBox();
     RamWatch ram;
     Stage stage;
 
@@ -35,7 +38,8 @@ public final class TabsApp extends Application {
         options = Options.parse(getParameters().getRaw());
         theme = TabbyTheme.load(options.theme);
         store = new SessionStore(options);
-        footer = new Footer(theme);
+        footer = new Footer(this, theme);
+        composer = new Composer(this, theme);
         window = options.offscreen || options.state != null ? new WindowState() : WindowState.load();
         sidebar = new Sidebar(this, tabs, theme);
         list = sidebar.list;
@@ -87,7 +91,8 @@ public final class TabsApp extends Application {
         SplitPane.setResizableWithParent(sidebar.node, false);
         split.setStyle("-fx-background-color: " + Ui.shade(theme.background, -10) + "; -fx-padding: 0; -fx-box-border: transparent;");
         var root = new BorderPane(split);
-        root.setBottom(footer);
+        bottom.getChildren().setAll(footer);
+        root.setBottom(bottom);
         return root;
     }
 
@@ -127,6 +132,7 @@ public final class TabsApp extends Application {
         var code = e.getCode();
         if (ctrlShift && code == KeyCode.T) add();
         else if (ctrlShift && code == KeyCode.W) close(selected());
+        else if (ctrlShift && code == KeyCode.E) toggleCompose();
         else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
             move(selected(), tabs.indexOf(selected()) + (code == KeyCode.PAGE_UP ? -1 : 1));
         else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
@@ -180,6 +186,36 @@ public final class TabsApp extends Application {
     static boolean inside(javafx.scene.Node n, javafx.scene.Node parent) {
         for (var p = n; p != null; p = p.getParent()) if (p == parent) return true;
         return false;
+    }
+
+    /** Opens the compose box under the terminal (pushing it up) and puts the cursor in it; closes it again. */
+    void toggleCompose() {
+        if (bottom.getChildren().contains(composer)) {
+            bottom.getChildren().remove(composer);
+            focusSoon();
+        } else {
+            bottom.getChildren().addFirst(composer);
+            Platform.runLater(composer.text::requestFocus);
+        }
+    }
+
+    /** Everything the shown tab shows and holds, as text (its saved text when asleep). */
+    void copyText() {
+        var t = selected();
+        if (t == null) return;
+        var text = t.live() ? t.screenText() : t.sleeping == null ? null : t.sleeping.screen;
+        if (text != null) copy(text);
+    }
+
+    void paste() {
+        var t = selected();
+        if (t != null && t.live()) t.widget.getTerminalPanel().handlePaste();
+        focusSoon();
+    }
+
+    void find() {
+        var t = selected();
+        if (t != null && t.live()) t.widget.showFindComponent();
     }
 
     void copy(String text) {
@@ -260,7 +296,6 @@ public final class TabsApp extends Application {
         stage.setTitle(t == null ? "Tabs" : "Tabs - " + t.shown() + " (" + t.where() + ")");
         list.refresh();
         footer.update(t, tabs, ram == null ? 0 : ram.selfBytes);
-        sidebar.update(tabs, ram == null ? 0 : ram.selfBytes);
     }
 
     void add() {

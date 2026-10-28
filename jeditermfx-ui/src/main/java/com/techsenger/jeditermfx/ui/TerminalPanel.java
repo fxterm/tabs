@@ -856,6 +856,17 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         if (text == null) {
             return;
         }
+        pasteText(text);
+    }
+
+    /** fxterm-tabs: types text in as a paste would (line ends as CR, bracketed when the program asked for it), so a
+     *  multi-line message from the compose box arrives whole rather than as one Enter per line. */
+    /** fxterm-tabs: sends keystrokes through the same queue as typing and pasting, so they keep their order. */
+    public void sendText(String text) {
+        myTerminalStarter.sendString(text, true);
+    }
+
+    public void pasteText(String text) {
         try {
             // Sanitize clipboard text to use CR as the line separator.
             // See https://github.com/JetBrains/jediterm/issues/136.

@@ -304,7 +304,7 @@ public class JediTermFxWidget implements TerminalSession, TerminalWidget, Termin
                 }).withMnemonicKey(KeyCode.F));
     }
 
-    protected void showFindComponent() {
+    public void showFindComponent() {
         if (myFindComponent == null) {
             myFindComponent = createFindComponent();
             final Pane pane = myFindComponent.getPane();

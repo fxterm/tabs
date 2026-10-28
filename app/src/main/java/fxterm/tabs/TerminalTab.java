@@ -27,6 +27,8 @@ public final class TerminalTab {
     Runnable wake = () -> { };
     /** A separator row: a label that groups the tabs under it; it runs nothing and cannot be selected. */
     boolean separator;
+    /** Restored from a tab that was the shown one when Tabs closed. */
+    boolean wasSelected;
     /** The window holding it now; changes when the tab is moved to another window. */
     TabsWindow owner;
     Button wakeButton;
@@ -73,10 +75,12 @@ public final class TerminalTab {
 
     static TerminalTab restored(Options o, TabbyTheme theme, SavedTab s) {
         if (s.separator) return separator(o, theme, s.customTitle != null ? s.customTitle : s.title);
+        var restoredSelected = s.selected;
         var t = new TerminalTab(o, theme, s.command(), s.cwd);
         t.custom.set(s.customTitle);
         t.color.set(s.color);
         t.sleep(s);
+        t.wasSelected = restoredSelected;
         return t;
     }
 

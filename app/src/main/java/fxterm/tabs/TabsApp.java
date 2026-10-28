@@ -39,7 +39,8 @@ public final class TabsApp extends Application {
             var w = windows.get(i);
             if (options.wakeAll) for (var t : w.realTabs().reversed()) w.list.getSelectionModel().select(t);
             if (asked != null && w == main) w.list.getSelectionModel().select(asked);
-            else w.list.getSelectionModel().select(w.realTabs().getFirst());
+            // the tab that was shown when Tabs closed, else the first real tab
+            else w.list.getSelectionModel().select(w.realTabs().stream().filter(t -> t.wasSelected).findFirst().orElse(w.realTabs().getFirst()));
             w.open(state(states, i));
         }
         lastFocused = main;
@@ -183,6 +184,7 @@ public final class TabsApp extends Application {
                     var s = t.snapshot(lines);
                     if (s == null) continue;
                     s.window = i;
+                    s.selected = t == snapshot.get(i).selected();
                     saved.add(s);
                     // a live tab goes into history as it was when Tabs closed (a sleeping one went in when it slept)
                     if (t.live()) history.record(s, "open when Tabs closed");

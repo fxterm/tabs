@@ -16,9 +16,9 @@ public final class Footer extends HBox {
         setStyle(Ui.footer(theme));
         setAlignment(Pos.CENTER_LEFT);
         setSpacing(12);
-        all.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 12.5; -fx-font-weight: bold;");
+        all.setStyle(pill("#d64545"));
         all.setTooltip(new Tooltip("Every live tab's shell and the program it runs (claude), together"));
-        self.setStyle(Ui.footerText(theme) + " -fx-font-weight: bold;");
+        self.setStyle(pill("#4a4a4a"));
         self.setTooltip(new Tooltip("What Tabs itself uses"));
         where.setStyle(Ui.footerText(theme) + " -fx-cursor: hand; -fx-underline: false;");
         where.setTooltip(new Tooltip("Click to copy this folder"));
@@ -43,6 +43,19 @@ public final class Footer extends HBox {
         getChildren().addAll(all, self, where, restoreAll, copyText, paste, find, compose);
     }
 
+    /** A rounded label with a coloured background; both RAM figures use it, so they sit level on one line. */
+    static String pill(String colour) {
+        return "-fx-background-color: " + colour + "; -fx-text-fill: #ffffff; -fx-font-size: 12; -fx-font-weight: bold;"
+                + " -fx-padding: 2 8 2 8; -fx-background-radius: 4;";
+    }
+
+    /** All tabs together: blue under 250 MB, yellow from 250, orange from 500, red from 800 (any claude session gets
+     *  there, so with claude it is mostly red; plain terminal programs stay low). */
+    static String totalColour(long bytes) {
+        var mb = bytes / (1024.0 * 1024);
+        return mb >= 800 ? "#d64545" : mb >= 500 ? "#e07b24" : mb >= 250 ? "#b8941f" : "#2f6fd6";
+    }
+
     static Button button(String text, String colour, String tip, Runnable action) {
         var b = new Button(text);
         b.setFocusTraversable(false);
@@ -58,6 +71,7 @@ public final class Footer extends HBox {
         var everyLive = every.stream().filter(TerminalTab::live).count();
         var total = every.stream().mapToLong(t -> t.live() ? t.ramBytes : 0).sum();
         all.setText("All tabs " + Mem.mb(total) + "  (" + everyLive + " live, " + (every.size() - everyLive) + " asleep)");
+        all.setStyle(pill(totalColour(total)));
         var live = tabs.stream().filter(TerminalTab::live).count();
         self.setText("Tabs app " + Mem.mb(selfBytes));
         if (!where.getText().startsWith("copied: ")) where.setText(selected == null ? "" : selected.where());

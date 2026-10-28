@@ -32,14 +32,14 @@ public final class TabsApp extends Application {
         saved.forEach(s -> windows.get(Math.min(Math.max(s.window, 0), count - 1)).adopt(wire(TerminalTab.restored(options, theme, s))));
         var main = windows.getFirst();
         var asked = request != null && !"show".equals(request.kind) ? main.adopt(wire(TerminalTab.of(options, theme, request))) : null;
-        if (main.tabs.isEmpty()) for (var i = 0; i < options.tabs; i++) main.adopt(wire(TerminalTab.fresh(options, theme)));
-        windows.removeIf(w -> w.tabs.isEmpty());
+        if (main.realTabs().isEmpty()) for (var i = 0; i < options.tabs; i++) main.adopt(wire(TerminalTab.fresh(options, theme)));
+        windows.removeIf(w -> w.realTabs().isEmpty());
         if (!options.offscreen && options.state == null || options.serve) Instance.serve(r -> Platform.runLater(() -> handle(r)));
         for (var i = 0; i < windows.size(); i++) {
             var w = windows.get(i);
-            if (options.wakeAll) for (var j = w.tabs.size() - 1; j >= 0; j--) w.list.getSelectionModel().select(j);
+            if (options.wakeAll) for (var t : w.realTabs().reversed()) w.list.getSelectionModel().select(t);
             if (asked != null && w == main) w.list.getSelectionModel().select(asked);
-            else w.list.getSelectionModel().select(0);
+            else w.list.getSelectionModel().select(w.realTabs().getFirst());
             w.open(state(states, i));
         }
         lastFocused = main;

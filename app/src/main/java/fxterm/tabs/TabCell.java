@@ -90,7 +90,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         // dropped where nothing took it: outside every window it opens in a new window there, as a browser does
         setOnDragDone(e -> {
             var tab = getItem();
-            if (e.getTransferMode() != null || tab == null || tab.owner == null) return;
+            if (e.getTransferMode() != null || tab == null || tab.owner == null || tab.separator) return;
             var at = TitleBar.cursor();
             if (at == null) return;
             var st = tab.owner.stage;
@@ -100,6 +100,12 @@ public final class TabCell extends ListCell<TerminalTab> {
         name.setMaxWidth(Double.MAX_VALUE);
         sub.setMaxWidth(Double.MAX_VALUE);
         path.setMaxWidth(Double.MAX_VALUE);
+        sepLabel.setStyle("-fx-text-fill: " + t.colors.get(4) + "; -fx-font-size: 11.5; -fx-font-weight: bold;");
+        var line = new Region();
+        line.setStyle("-fx-background-color: " + Ui.shade(t.background, 40) + "; -fx-min-height: 1; -fx-max-height: 1; -fx-pref-height: 1;");
+        HBox.setHgrow(line, Priority.ALWAYS);
+        sepRow = new HBox(8, sepLabel, line);
+        sepRow.setAlignment(Pos.CENTER_LEFT);
     }
 
     @Override
@@ -111,9 +117,28 @@ public final class TabCell extends ListCell<TerminalTab> {
             setTooltip(null);
             setContextMenu(null);
             setStyle(Ui.cell(side.theme, false, null));
+            setPrefHeight(Sidebar.ROW);
             return;
         }
-        number.setText(String.valueOf(getIndex() + 1));
+        if (t.separator) {
+            // a label with a line after it; nothing to open, nothing to measure
+            sepLabel.setText(t.shown().toUpperCase(Locale.ROOT));
+            setTooltip(null);
+            setContextMenu(side.separatorMenu(t));
+            setGraphic(sepRow);
+            setPrefHeight(Sidebar.SEPARATOR_ROW);
+            setMinHeight(Sidebar.SEPARATOR_ROW);
+            setMaxHeight(Sidebar.SEPARATOR_ROW);
+            setStyle("-fx-padding: 0 6 0 8; -fx-background-color: " + Ui.shade(side.theme.background, -10) + ";");
+            return;
+        }
+        setPrefHeight(Sidebar.ROW);
+        setMinHeight(Sidebar.ROW);
+        setMaxHeight(Sidebar.ROW);
+        // numbered among real tabs only, as Ctrl/Alt+number counts them
+        var n = 1;
+        for (var i = 0; i < getIndex() && i < getListView().getItems().size(); i++) if (!getListView().getItems().get(i).separator) n++;
+        number.setText(String.valueOf(n));
         name.setText(t.shown());
         var where = t.where();
         var folder = Path.of(where).getFileName();
@@ -165,9 +190,13 @@ public final class TabCell extends ListCell<TerminalTab> {
         return mb >= 1000 ? "%.1fG".formatted(mb / 1024) : "%.0fM".formatted(mb);
     }
 
+    final Label sepLabel = new Label();
+    final HBox sepRow;
+
     @Override
     public void updateSelected(boolean selected) {
         super.updateSelected(selected);
+        if (getItem() != null && getItem().separator) return;
         setStyle(Ui.cell(side.theme, selected && !isEmpty(), isEmpty() || getItem() == null ? null : getItem().color.get()));
     }
 }

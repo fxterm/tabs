@@ -68,7 +68,9 @@ public final class Footer extends HBox {
     }
 
     /** tabs: this window's (for Restore all); every: all windows' (for the RAM total). */
-    void update(TerminalTab selected, List<TerminalTab> tabs, List<TerminalTab> every, long selfBytes) {
+    void update(TerminalTab selected, List<TerminalTab> withSeparators, List<TerminalTab> everyWithSeparators, long selfBytes) {
+        var tabs = withSeparators.stream().filter(t -> !t.separator).toList();
+        var every = everyWithSeparators.stream().filter(t -> !t.separator).toList();
         var everyLive = every.stream().filter(TerminalTab::live).count();
         var total = every.stream().mapToLong(t -> t.live() ? t.ramBytes : 0).sum();
         all.setText("All tabs " + Mem.mb(total) + "  (" + everyLive + " live, " + (every.size() - everyLive) + " asleep)");

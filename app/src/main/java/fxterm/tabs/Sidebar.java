@@ -11,7 +11,7 @@ import javafx.scene.layout.*;
  *  past the window's height the list scrolls. Right-click a tab: rename, colour, close. */
 public final class Sidebar {
 
-    static final double ROW = 64;
+    static final double ROW = 64, SEPARATOR_ROW = 30;
     static final Map<String, Integer> COLOURS = new LinkedHashMap<>();
 
     static {
@@ -27,6 +27,7 @@ public final class Sidebar {
     final TabbyTheme theme;
     final ListView<TerminalTab> list;
     final VBox node;
+    final HBox addButtons;
 
     Sidebar(TabsWindow app, ObservableList<TerminalTab> tabs, TabbyTheme theme) {
         this.app = app;
@@ -34,9 +35,10 @@ public final class Sidebar {
         list = new ListView<>(tabs);
         list.setCellFactory(v -> new TabCell(this));
         list.setFocusTraversable(false);
-        list.setFixedCellSize(ROW);
         list.setStyle(Ui.sidebar(theme));
-        list.prefHeightProperty().bind(Bindings.size(tabs).multiply(ROW).add(6));
+        // tabs and separators have their own heights; the list is as tall as its rows, so + sits under the last
+        list.prefHeightProperty().bind(Bindings.createDoubleBinding(
+                () -> tabs.stream().mapToDouble(t -> t.separator ? SEPARATOR_ROW : ROW).sum() + 6, tabs));
         list.setMinHeight(ROW);
         list.setMaxHeight(Region.USE_PREF_SIZE);
         var plus = new Button("+");
@@ -44,6 +46,14 @@ public final class Sidebar {
         plus.setStyle(Ui.plus(theme));
         plus.setTooltip(new Tooltip("New tab (Ctrl+Shift+T)"));
         plus.setOnAction(e -> app.add());
+        // beside +: a separator with a label, added at the end; drag it to where the group should start
+        var separatorButton = new Button("⎯ label");
+        separatorButton.setFocusTraversable(false);
+        separatorButton.setStyle(Ui.plus(theme) + " -fx-font-size: 12.5; -fx-opacity: 0.8;");
+        separatorButton.setTooltip(new Tooltip("New separator: a label that groups the tabs under it (drag it into place)"));
+        separatorButton.setOnAction(e -> app.insertSeparator(null));
+        addButtons = new HBox(0, plus, separatorButton);
+        addButtons.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         // a tab dropped on the list but below the last tab goes to the end; from another window too
         list.setOnDragOver(e -> {
             if (e.getGestureSource() instanceof TabCell) e.acceptTransferModes(TransferMode.MOVE);
@@ -56,7 +66,7 @@ public final class Sidebar {
             }
             e.consume();
         });
-        node = new VBox(list, plus);
+        node = new VBox(list, addButtons);
         node.setStyle(Ui.sidebar(theme));
         node.setMinWidth(120);
     }
@@ -123,8 +133,25 @@ public final class Sidebar {
         icon(above, "↥");
         icon(below, "↧");
         icon(others, "⊠");
-        return new ContextMenu(copyDir, copyCmd, new SeparatorMenuItem(), rename, colour, duplicate, sleep, moveTo,
+        var group = new MenuItem("Insert separator above…");
+        group.setOnAction(e -> app.insertSeparator(t));
+        icon(group, "\u2014");
+        return new ContextMenu(copyDir, copyCmd, new SeparatorMenuItem(), rename, colour, duplicate, sleep, moveTo, group,
                 new SeparatorMenuItem(), close, above, below, others);
+    }
+
+    /** A separator's own menu: its label, another separator, removing it. */
+    ContextMenu separatorMenu(TerminalTab t) {
+        var rename = new MenuItem("Rename…");
+        rename.setOnAction(e -> rename(t));
+        icon(rename, "\u270E");
+        var group = new MenuItem("Insert separator above…");
+        group.setOnAction(e -> app.insertSeparator(t));
+        icon(group, "\u2014");
+        var remove = new MenuItem("Delete separator");
+        remove.setOnAction(e -> { app.tabs.remove(t); app.refresh(); });
+        icon(remove, "\u2715");
+        return new ContextMenu(rename, group, new SeparatorMenuItem(), remove);
     }
 
     static void icon(MenuItem item, String glyph) {

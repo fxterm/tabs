@@ -119,6 +119,22 @@ public final class TestHooks {
                         + app.selected().live() + " in " + app.selected().where() + ", history view closed " + !app.historyShown());
             });
         });
+        // separators: never chosen, not counted, skipped by Ctrl+Tab, kept on save
+        if (o.testSeparators) Thread.ofPlatform().daemon().start(() -> {
+            Runnable chosen = () -> System.err.println("test-separators:   chosen " + (app.selected() == null ? "none" : app.selected().where()));
+            Bench.sleep(1500);
+            Platform.runLater(() -> { System.err.println("test-separators: at start"); chosen.run(); });
+            Platform.runLater(() -> { app.select(2); System.err.println("test-separators: Ctrl+3"); chosen.run(); });
+            Platform.runLater(() -> { app.step(1); System.err.println("test-separators: Ctrl+Tab"); chosen.run(); });
+            Platform.runLater(() -> { app.step(1); System.err.println("test-separators: Ctrl+Tab (wraps)"); chosen.run(); });
+            Platform.runLater(() -> app.list.getSelectionModel().select(app.tabs.stream().filter(t -> t.separator).findFirst().orElseThrow()));
+            Bench.sleep(500);
+            Platform.runLater(() -> { System.err.println("test-separators: clicked a separator"); chosen.run(); });
+            Platform.runLater(() -> { app.select(2); app.close(app.selected()); System.err.println("test-separators: closed tab 3"); chosen.run(); });
+            Bench.sleep(800);
+            Platform.runLater(() -> { System.err.println("test-separators: a moment later"); chosen.run(); });
+            Platform.runLater(() -> Snapshot.write(scene, o.snapshot != null ? o.snapshot : "separators.png"));
+        });
         // the tab menu's actions, on plain shells
         if (o.testMenu) Thread.ofPlatform().daemon().start(() -> {
             Runnable state = () -> System.err.println("test-menu:   " + app.tabs.stream()

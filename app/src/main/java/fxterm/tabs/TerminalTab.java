@@ -25,6 +25,8 @@ public final class TerminalTab {
     SavedTab sleeping;
     Consumer<TerminalTab> onExit = t -> { };
     Runnable wake = () -> { };
+    /** A separator row: a label that groups the tabs under it; it runs nothing and cannot be selected. */
+    boolean separator;
     /** The window holding it now; changes when the tab is moved to another window. */
     TabsWindow owner;
     Button wakeButton;
@@ -60,7 +62,17 @@ public final class TerminalTab {
         return cwd != null ? cwd : System.getProperty("user.home");
     }
 
+    /** A separator row with this label. */
+    static TerminalTab separator(Options o, TabbyTheme theme, String label) {
+        var t = new TerminalTab(o, theme, List.of(), null);
+        t.separator = true;
+        t.title.set(label);
+        t.custom.set(label);
+        return t;
+    }
+
     static TerminalTab restored(Options o, TabbyTheme theme, SavedTab s) {
+        if (s.separator) return separator(o, theme, s.customTitle != null ? s.customTitle : s.title);
         var t = new TerminalTab(o, theme, s.command(), s.cwd);
         t.custom.set(s.customTitle);
         t.color.set(s.color);
@@ -104,7 +116,7 @@ public final class TerminalTab {
     }
 
     void start() throws IOException {
-        if (widget != null) return;
+        if (widget != null || separator) return;
         widget = new JediTermFxWidget(120, 30, new Theme(theme, o));
         connector = new PtyConnector(argv, cwd, 120, 30);
         widget.setTtyConnector(connector);
@@ -124,6 +136,13 @@ public final class TerminalTab {
 
     /** What to save for this tab; null when it is a plain shell with nothing worth restoring beyond a new shell. */
     SavedTab snapshot(Map<Long, String> commandLines) {
+        if (separator) {
+            var s = new SavedTab();
+            s.separator = true;
+            s.title = shown();
+            s.customTitle = shown();
+            return s;
+        }
         if (sleeping != null) return decorate(sleeping);
         if (connector == null) return null;
         return decorate(ClaudeProbe.of(connector.process.pid()).map(c -> c.withArgs(commandLines).saved(title.get())).orElseGet(() -> {
@@ -142,6 +161,7 @@ public final class TerminalTab {
     /** Its saved form at the moment it closes, for history: no WMI call (that takes a second), so a live claude's flags
      *  come from what RamWatch noted when that claude started. */
     SavedTab quickSave() {
+        if (separator) return null;
         if (sleeping != null) return decorate(sleeping);
         if (connector == null) return null;
         var probe = ClaudeProbe.of(connector.process.pid());

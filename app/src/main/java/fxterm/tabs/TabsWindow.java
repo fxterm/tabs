@@ -42,7 +42,18 @@ public final class TabsWindow {
         composer = new Composer(this, theme);
         sidebar = new Sidebar(this, tabs, theme);
         list = sidebar.list;
-        list.getSelectionModel().selectedItemProperty().addListener((ov, was, now) -> show(now));
+        list.getSelectionModel().selectedItemProperty().addListener((ov, was, now) -> {
+            // a separator cannot be chosen: the choice goes back to the tab that had it (or the nearest real tab)
+            if (now != null && now.separator) {
+                // only if the separator is still chosen by then: closing a tab may pass through one on its way
+                Platform.runLater(() -> {
+                    if (selected() != now) return;
+                    list.getSelectionModel().select(was != null && tabs.contains(was) && !was.separator ? was : nearestReal(tabs.indexOf(now)));
+                });
+                return;
+            }
+            show(now);
+        });
         stage.iconifiedProperty().addListener((ov, was, now) -> paint());
         scene = new Scene(layout(), ws.width, ws.height);
         scene.getStylesheets().add(Ui.stylesheet(theme));
@@ -128,12 +139,47 @@ public final class TabsWindow {
         e.consume();
     }
 
+    /** Ctrl+Tab and Ctrl+Shift+Tab: the next or previous real tab, round the end, over separators. */
     void step(int by) {
-        if (!tabs.isEmpty()) list.getSelectionModel().select(Math.floorMod(list.getSelectionModel().getSelectedIndex() + by, tabs.size()));
+        var real = realTabs();
+        if (real.isEmpty()) return;
+        var at = Math.max(0, real.indexOf(selected()));
+        list.getSelectionModel().select(real.get(Math.floorMod(at + by, real.size())));
     }
 
+    /** Alt or Ctrl+number: the i-th real tab (separators are not counted, as their rows show no number). */
     void select(int i) {
-        if (i >= 0 && i < tabs.size()) list.getSelectionModel().select(i);
+        var real = realTabs();
+        if (i >= 0 && i < real.size()) list.getSelectionModel().select(real.get(i));
+    }
+
+    List<TerminalTab> realTabs() {
+        return tabs.stream().filter(t -> !t.separator).toList();
+    }
+
+    /** The real tab at this place or the nearest one, below first (null when there is none). */
+    TerminalTab nearestReal(int i) {
+        for (var d = 0; d < tabs.size(); d++) {
+            if (i + d < tabs.size() && i + d >= 0 && !tabs.get(i + d).separator) return tabs.get(i + d);
+            if (i - d >= 0 && i - d < tabs.size() && !tabs.get(i - d).separator) return tabs.get(i - d);
+        }
+        return null;
+    }
+
+    /** A separator, labelled by the user, placed above the given tab (or at the end). */
+    void insertSeparator(TerminalTab above) {
+        var d = new TextInputDialog("");
+        d.initOwner(stage);
+        d.setTitle("Separator");
+        d.setHeaderText("Label for the separator (for example: work, code, asleep)");
+        d.showAndWait().filter(s -> !s.isBlank()).ifPresent(label -> {
+            var sep = TerminalTab.separator(options, theme, label.strip());
+            var i = above == null ? tabs.size() : tabs.indexOf(above);
+            tabs.add(Math.max(0, i), sep);
+            sep.owner = this;
+            refresh();
+        });
+        focusSoon();
     }
 
     /** Shows a tab. A new tab starts here; a sleeping one shows what waking it would run and waits to be asked
@@ -336,11 +382,11 @@ public final class TabsWindow {
         } else {
             t.painting(false);
         }
-        if (tabs.isEmpty()) {
+        if (realTabs().isEmpty()) {
             app.emptied(this);
             return;
         }
-        if (wasSelected) list.getSelectionModel().clearAndSelect(Math.min(i, tabs.size() - 1));
+        if (wasSelected) list.getSelectionModel().clearAndSelect(tabs.indexOf(nearestReal(Math.min(i, tabs.size() - 1))));
         var now = selected();
         if (now != null) Platform.runLater(now::focus);
     }

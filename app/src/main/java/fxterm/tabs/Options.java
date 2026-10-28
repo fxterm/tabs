@@ -15,7 +15,7 @@ public final class Options {
     long benchWait = 20_000, benchGap = 150, benchPromptWait = 3_000, snapshotWait = 8_000, quitAfter = 0;
     double font = 0;
     boolean offscreen, benchExit, restore = true, wakeAll, testKeys, testWake, testWakeAll, testMenu, testCompose, testWindows, testEsc, serve;
-    String shell = "cmd.exe", family = "Consolas", theme = "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd, testLook;
+    String shell = "cmd.exe", family = "Consolas", theme = "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd, testLook, testHistory;
 
     static Options parse(List<String> args) {
         var o = new Options();
@@ -53,6 +53,7 @@ public final class Options {
                 case "--test-look" -> o.testLook = v;
                 case "--test-compose" -> o.testCompose = Boolean.parseBoolean(v);
                 case "--test-windows" -> o.testWindows = Boolean.parseBoolean(v);
+                case "--test-history" -> o.testHistory = v;
                 case "--test-esc" -> o.testEsc = Boolean.parseBoolean(v);
                 case "--serve" -> o.serve = Boolean.parseBoolean(v);
                 case "--quit-after" -> o.quitAfter = Long.parseLong(v);

@@ -117,6 +117,7 @@ public final class TabsWindow {
         else if (ctrlShift && code == KeyCode.N) app.newWindow(null, Double.NaN, Double.NaN, this);
         else if (ctrlShift && code == KeyCode.W) close(selected());
         else if (ctrlShift && code == KeyCode.E) toggleCompose();
+        else if (ctrlShift && code == KeyCode.H) { if (historyShown()) hideHistory(); else showHistory(); }
         else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
             move(selected(), tabs.indexOf(selected()) + (code == KeyCode.PAGE_UP ? -1 : 1));
         else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
@@ -162,7 +163,39 @@ public final class TabsWindow {
     }
 
     void focusSoon() {
-        Platform.runLater(() -> { var t = selected(); if (t != null) t.focus(); });
+        Platform.runLater(() -> {
+            if (historyShown()) return;
+            var t = selected();
+            if (t != null) t.focus();
+        });
+    }
+
+    HistoryPane historyPane;
+
+    boolean historyShown() {
+        return historyPane != null && content.getChildren().contains(historyPane);
+    }
+
+    /** The History view in place of the terminal; choosing a tab, Esc, or the button again goes back. */
+    void showHistory() {
+        if (historyPane == null) historyPane = new HistoryPane(this, app.history);
+        content.getChildren().setAll(historyPane);
+        historyPane.open();
+    }
+
+    void hideHistory() {
+        var t = selected();
+        if (t != null) show(t);
+        else content.getChildren().clear();
+    }
+
+    /** A history entry opened again: a new tab, started at once (claude --resume with its flags, or its shell). */
+    void resumeFromHistory(SavedTab s) {
+        var t = app.wire(new TerminalTab(options, theme, s.command(), s.cwd));
+        t.custom.set(s.customTitle);
+        if (s.claude()) t.lastClaude = s;
+        list.getSelectionModel().select(adopt(t));
+        show(t);
     }
 
     static boolean inside(javafx.scene.Node n, javafx.scene.Node parent) {
@@ -222,6 +255,7 @@ public final class TabsWindow {
             var saved = t.snapshot(ClaudeProbe.commandLines());
             Platform.runLater(() -> {
                 if (saved == null || !t.live()) return;
+                app.history.record(saved, "hibernated");
                 t.sleep(saved);
                 if (t.owner != null && t == t.owner.selected()) t.owner.show(t);
                 app.refreshAll();
@@ -290,8 +324,12 @@ public final class TabsWindow {
         if (i < 0) return;
         var wasSelected = t == selected();
         tabs.remove(t);
-        if (end) t.close();
-        else t.painting(false);
+        if (end) {
+            app.history.record(t.quickSave(), "closed");
+            t.close();
+        } else {
+            t.painting(false);
+        }
         if (tabs.isEmpty()) {
             app.emptied(this);
             return;

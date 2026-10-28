@@ -10,7 +10,7 @@ import javafx.scene.layout.*;
 public final class Footer extends HBox {
 
     final Label all = new Label(), self = new Label(), where = new Label();
-    final Button restoreAll, copyText, paste, find, compose;
+    final Button restoreAll, copyText, paste, find, compose, history;
 
     Footer(TabsWindow app, TabbyTheme theme) {
         setStyle(Ui.footer(theme));
@@ -40,7 +40,8 @@ public final class Footer extends HBox {
         paste = button("Paste", "#4a4a4a", "Paste into this tab (also: right-click)", app::paste);
         find = button("Find  Ctrl+F", "#4a4a4a", "Search this tab's text", app::find);
         compose = button("Compose  Ctrl+Shift+E", theme.colors.get(2), "Write in an editor, then send it to this tab", app::toggleCompose);
-        getChildren().addAll(all, self, where, restoreAll, copyText, paste, find, compose);
+        history = button("History  Ctrl+Shift+H", theme.colors.get(5), "Every saved session: search, read, copy, resume", app::showHistory);
+        getChildren().addAll(all, self, where, restoreAll, copyText, paste, find, compose, history);
     }
 
     /** A rounded label with a coloured background; both RAM figures use it, so they sit level on one line. */

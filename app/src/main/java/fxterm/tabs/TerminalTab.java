@@ -139,6 +139,27 @@ public final class TerminalTab {
         }));
     }
 
+    /** Its saved form at the moment it closes, for history: no WMI call (that takes a second), so a live claude's flags
+     *  come from what RamWatch noted when that claude started. */
+    SavedTab quickSave() {
+        if (sleeping != null) return decorate(sleeping);
+        if (connector == null) return null;
+        var probe = ClaudeProbe.of(connector.process.pid());
+        SavedTab s;
+        if (probe.isPresent()) {
+            var c = probe.get();
+            s = c.saved(title.get());
+            var known = lastClaude;
+            if (known != null && c.sessionId.equals(known.claudeSessionId)) s.claudeArgs = new ArrayList<>(known.claudeArgs);
+        } else {
+            s = new SavedTab();
+            s.title = title.get();
+            s.cwd = connector.promptCwd != null ? connector.promptCwd : cwd;
+            s.shell = SavedTab.shellOf(argv);
+        }
+        return decorate(s);
+    }
+
     /** Ends the process and frees the widget; keeps the saved form so the tab can start again. In its place the tab
      *  shows what waking it would start, and waits to be asked: Enter or F2, or the button. */
     void sleep(SavedTab s) {

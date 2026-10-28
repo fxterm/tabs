@@ -87,6 +87,38 @@ public final class TestHooks {
                 state.run();
             });
         });
+        // history: a tab that printed a marker is closed, another hibernated; History finds the marker, previews it,
+        // resumes it
+        if (o.testHistory != null) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(1500);
+            Platform.runLater(app::wakeAll);
+            Bench.sleep(2500);
+            Platform.runLater(() -> app.tabs.getFirst().widget.getTerminalPanel().pasteText("echo HISTORY-MARKER-" + "ONE\r"));
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                app.close(app.tabs.getFirst());
+                app.hibernate(app.tabs.getFirst());
+            });
+            Bench.sleep(3000);
+            Platform.runLater(() -> {
+                app.showHistory();
+                app.historyPane.search.setText("history-marker-one");
+            });
+            Bench.sleep(2500);
+            Platform.runLater(() -> {
+                var p = app.historyPane;
+                var e = p.chosen();
+                System.err.println("test-history: all " + p.all.size() + " entries " + p.all.stream().map(x -> x.event + ":" + x.cwd).toList());
+                System.err.println("test-history: search found " + p.results.getItems().size() + (e == null ? "" : ", first " + e.cwd
+                        + ", preview has marker " + p.preview.getText().contains("HISTORY-MARKER-ONE")
+                        + ", selection " + p.preview.getSelectedText()));
+                Snapshot.write(scene, o.testHistory);
+                var before = app.tabs.size();
+                p.resume();
+                System.err.println("test-history: resumed, tabs " + before + " -> " + app.tabs.size() + ", new tab live "
+                        + app.selected().live() + " in " + app.selected().where() + ", history view closed " + !app.historyShown());
+            });
+        });
         // the tab menu's actions, on plain shells
         if (o.testMenu) Thread.ofPlatform().daemon().start(() -> {
             Runnable state = () -> System.err.println("test-menu:   " + app.tabs.stream()

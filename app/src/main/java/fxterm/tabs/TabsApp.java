@@ -14,6 +14,7 @@ public final class TabsApp extends Application {
     Options options;
     TabbyTheme theme;
     SessionStore store;
+    History history;
     RamWatch ram;
     /** Where a tab from another launch (Tabby's open / run) goes. */
     TabsWindow lastFocused;
@@ -23,6 +24,7 @@ public final class TabsApp extends Application {
         options = Options.parse(getParameters().getRaw());
         theme = TabbyTheme.load(options.theme);
         store = new SessionStore(options);
+        history = new History(options);
         var states = options.offscreen || options.state != null ? List.of(new WindowState()) : WindowState.loadAll();
         var saved = options.restore ? store.load() : List.<SavedTab>of();
         var count = Math.max(1, saved.stream().mapToInt(s -> s.window + 1).max().orElse(1));
@@ -42,7 +44,7 @@ public final class TabsApp extends Application {
         }
         lastFocused = main;
         IdleTrim.start();
-        new Hibernator(this::hidden, options).start();
+        new Hibernator(this::hidden, options, s -> history.record(s, "hibernated")).start();
         ram = new RamWatch(this::allTabs, this::refreshAll);
         ram.start();
         TestHooks.start(main, main.scene, options);
@@ -182,6 +184,8 @@ public final class TabsApp extends Application {
                     if (s == null) continue;
                     s.window = i;
                     saved.add(s);
+                    // a live tab goes into history as it was when Tabs closed (a sleeping one went in when it slept)
+                    if (t.live()) history.record(s, "open when Tabs closed");
                 }
             }
             var busy = all.stream().filter(TerminalTab::live).flatMap(t -> ClaudeProbe.of(t.connector.process.pid()).stream())
@@ -190,6 +194,7 @@ public final class TabsApp extends Application {
                 if (!busy.isEmpty() && !Ui.confirm(owner, "Still working: " + String.join(", ", busy)
                         + ".\nClosing ends them mid-turn. They are saved and resume when their tab is opened again.")) return;
                 store.save(saved);
+                history.flush();
                 all.forEach(TerminalTab::close);
                 if (!options.offscreen && options.state == null) WindowState.saveAll(snapshot);
                 if (!options.offscreen && options.state == null || options.serve) Instance.release();

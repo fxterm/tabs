@@ -27,7 +27,17 @@ public final class Ui {
                 + ".scroll-bar .increment-arrow, .scroll-bar .decrement-arrow { -fx-shape: \"\"; -fx-padding: 0; }\n"
                 + ".context-menu { -fx-background-color: " + shade(t.background, 8) + "; }\n"
                 + ".context-menu .label { -fx-text-fill: " + t.foreground + "; }\n"
-                + ".menu-item:focused { -fx-background-color: " + shade(t.background, 30) + "; }\n";
+                + ".menu-item:focused { -fx-background-color: " + shade(t.background, 30) + "; }\n"
+                // the History view's list, filters and search box, in the theme's dark colours
+                + ".list-cell:filled:selected, .list-cell:filled:selected:focused { -fx-background-color: " + shade(t.background, 22) + "; }\n"
+                + ".list-cell { -fx-background-color: transparent; }\n"
+                + ".choice-box { -fx-background-color: " + shade(t.background, 18) + "; -fx-background-radius: 4; }\n"
+                + ".choice-box > .label { -fx-text-fill: " + t.foreground + "; }\n"
+                + ".choice-box > .open-button > .arrow { -fx-background-color: " + t.foreground + "; }\n"
+                + ".text-field { -fx-background-color: " + shade(t.background, 12) + "; -fx-text-fill: " + t.foreground + ";"
+                + " -fx-prompt-text-fill: " + shade(t.foreground, -70) + "; -fx-background-radius: 4; }\n"
+                + ".text-field:focused { -fx-background-color: " + t.colors.get(4) + ", " + shade(t.background, 12) + "; -fx-background-insets: 0, 1; }\n"
+                + ".date-picker > .arrow-button { -fx-background-color: " + shade(t.background, 18) + "; }\n";
         return "data:text/css;base64," + java.util.Base64.getEncoder().encodeToString(css.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 

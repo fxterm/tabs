@@ -11,10 +11,12 @@ public final class Hibernator {
 
     final Supplier<List<TerminalTab>> hidden;
     final Options o;
+    final Consumer<SavedTab> slept;
 
-    Hibernator(Supplier<List<TerminalTab>> hidden, Options o) {
+    Hibernator(Supplier<List<TerminalTab>> hidden, Options o, Consumer<SavedTab> slept) {
         this.hidden = hidden;
         this.o = o;
+        this.slept = slept;
     }
 
     void start() {
@@ -45,7 +47,11 @@ public final class Hibernator {
                 .min(Comparator.comparingLong(c -> c.claude().statusUpdatedAt))
                 .ifPresent(c -> {
                     var saved = c.tab().decorate(c.claude().withArgs(ClaudeProbe.commandLines()).saved(c.tab().title.get()));
-                    Platform.runLater(() -> { if (c.tab().live()) c.tab().sleep(saved); });
+                    Platform.runLater(() -> {
+                        if (!c.tab().live()) return;
+                        slept.accept(saved);
+                        c.tab().sleep(saved);
+                    });
                 });
     }
 }

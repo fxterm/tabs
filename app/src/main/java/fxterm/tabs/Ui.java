@@ -41,7 +41,7 @@ public final class Ui {
         var base = selected ? shade(t.background, 14) : shade(t.background, -10);
         var bar = colour != null ? colour : selected ? t.colors.get(4) : "transparent";
         var fill = colour != null ? mix(base, colour, selected ? 0.28 : 0.16) : base;
-        return "-fx-padding: 4 6 4 8; -fx-border-width: 0 0 0 3; -fx-border-color: " + bar + "; -fx-background-color: " + fill + ";";
+        return "-fx-padding: 3 2 3 4; -fx-border-width: 0 0 0 3; -fx-border-color: " + bar + "; -fx-background-color: " + fill + ";";
     }
 
     static String mix(String a, String b, double amount) {

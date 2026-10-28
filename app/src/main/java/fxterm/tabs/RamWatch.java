@@ -8,7 +8,7 @@ import javafx.application.Platform;
  *  so an idle window is not woken for nothing. */
 public final class RamWatch {
 
-    static final long PERIOD_MS = 3_000, MIN_CHANGE = 1024 * 1024;
+    static final long PERIOD_MS = 3_000, MIN_CHANGE = 4 * 1024 * 1024;
 
     final Supplier<List<TerminalTab>> tabs;
     final Runnable changed;

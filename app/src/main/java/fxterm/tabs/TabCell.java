@@ -87,6 +87,15 @@ public final class TabCell extends ListCell<TerminalTab> {
             e.consume();
         });
         setOnDragExited(e -> setBorder(null));
+        // the right-click menu is built when asked for, not on every redraw (the list redraws as RAM figures change)
+        setOnContextMenuRequested(e -> {
+            var tab = getItem();
+            if (tab == null) return;
+            if (openMenu != null) openMenu.hide();
+            openMenu = tab.separator ? side.separatorMenu(tab) : side.menu(tab);
+            openMenu.show(this, e.getScreenX(), e.getScreenY());
+            e.consume();
+        });
         // a press on a separator only starts a drag: it must not try to select the separator, whose "cannot be
         // chosen" correction redraws the list under the drag
         addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> { if (getItem() != null && getItem().separator && e.isPrimaryButtonDown()) e.consume(); });
@@ -140,7 +149,7 @@ public final class TabCell extends ListCell<TerminalTab> {
             // a label with a line after it; nothing to open, nothing to measure
             sepLabel.setText(t.shown().toUpperCase(Locale.ROOT));
             setTooltip(null);
-            setContextMenu(side.separatorMenu(t));
+            setContextMenu(null);
             setGraphic(sepRow);
             setPrefHeight(Sidebar.SEPARATOR_ROW);
             setMinHeight(Sidebar.SEPARATOR_ROW);
@@ -171,7 +180,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         var ram = t.live() ? Mem.mb(t.ramBytes) : "asleep";
         tip.setText(t.shown() + "\n" + where + "\n" + (t.live() ? "RAM: " + ram + " (shell and the program it runs)" : "Asleep: no process; Enter restores it"));
         setTooltip(tip);
-        setContextMenu(side.menu(t));
+        setContextMenu(null);
         setGraphic(row);
         setStyle(Ui.cell(side.theme, isSelected(), t.color.get()));
     }
@@ -206,6 +215,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         return mb >= 1000 ? "%.1fG".formatted(mb / 1024) : "%.0fM".formatted(mb);
     }
 
+    ContextMenu openMenu;
     final Label sepLabel = new Label();
     final HBox sepRow;
 

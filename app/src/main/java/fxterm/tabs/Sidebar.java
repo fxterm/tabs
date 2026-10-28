@@ -87,9 +87,29 @@ public final class Sidebar {
             item.setOnAction(e -> recolour(t, theme.colors.get(index)));
             colour.getItems().add(item);
         });
+        // browser-style: copy, this tab, closing
+        var copyDir = new MenuItem("Copy folder path");
+        copyDir.setOnAction(e -> app.copy(t.where()));
+        var copyCmd = new MenuItem(t.live() ? "Copy command (to resume elsewhere)" : "Copy restore command");
+        copyCmd.setOnAction(e -> app.copyCommand(t));
+        var duplicate = new MenuItem("Duplicate (new tab in this folder)");
+        duplicate.setOnAction(e -> app.duplicate(t));
+        var sleep = new MenuItem(t.live() ? "Hibernate" : "Restore");
+        sleep.setOnAction(e -> { if (t.live()) app.hibernate(t); else t.wake.run(); });
         var close = new MenuItem("Close tab");
-        close.setOnAction(e -> app.close(t));
-        return new ContextMenu(rename, colour, new SeparatorMenuItem(), close);
+        close.setOnAction(e -> app.closeTabs(List.of(t)));
+        var i = app.tabs.indexOf(t);
+        var above = new MenuItem("Close tabs above");
+        above.setOnAction(e -> app.closeTabs(List.copyOf(app.tabs.subList(0, app.tabs.indexOf(t)))));
+        above.setDisable(i <= 0);
+        var below = new MenuItem("Close tabs below");
+        below.setOnAction(e -> app.closeTabs(List.copyOf(app.tabs.subList(app.tabs.indexOf(t) + 1, app.tabs.size()))));
+        below.setDisable(i >= app.tabs.size() - 1);
+        var others = new MenuItem("Close other tabs");
+        others.setOnAction(e -> app.closeTabs(app.tabs.stream().filter(x -> x != t).toList()));
+        others.setDisable(app.tabs.size() < 2);
+        return new ContextMenu(copyDir, copyCmd, new SeparatorMenuItem(), rename, colour, duplicate, sleep,
+                new SeparatorMenuItem(), close, above, below, others);
     }
 
     void rename(TerminalTab t) {

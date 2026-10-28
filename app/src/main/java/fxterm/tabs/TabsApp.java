@@ -103,10 +103,15 @@ public final class TabsApp extends Application {
     }
 
     TerminalTab adopt(TerminalTab t) {
+        tabs.add(t);
+        return adoptOnly(t);
+    }
+
+    /** Wires a tab already placed in the list. */
+    TerminalTab adoptOnly(TerminalTab t) {
         t.onExit = this::exited;
         t.wake = () -> wake(t);
         t.title.addListener((ov, was, now) -> refresh());
-        tabs.add(t);
         return t;
     }
 
@@ -175,6 +180,52 @@ public final class TabsApp extends Application {
     static boolean inside(javafx.scene.Node n, javafx.scene.Node parent) {
         for (var p = n; p != null; p = p.getParent()) if (p == parent) return true;
         return false;
+    }
+
+    void copy(String text) {
+        var c = new javafx.scene.input.ClipboardContent();
+        c.putString(text);
+        javafx.scene.input.Clipboard.getSystemClipboard().setContent(c);
+    }
+
+    /** The line that brings this tab back in any cmd window: its folder, then claude --resume with its flags, or its
+     *  shell. Reading a live claude's flags takes a WMI call, so it runs off the FX thread. */
+    void copyCommand(TerminalTab t) {
+        Thread.ofPlatform().daemon().start(() -> {
+            var s = t.live() ? t.snapshot(ClaudeProbe.commandLines()) : t.sleeping;
+            if (s != null) Platform.runLater(() -> copy(s.resumeLine()));
+        });
+    }
+
+    /** A new tab with a fresh shell in the same folder. */
+    void duplicate(TerminalTab t) {
+        var copy = new TerminalTab(options, theme, ClaudeProbe.tokens(options.shell), t.where());
+        tabs.add(tabs.indexOf(t) + 1, copy);
+        adoptOnly(copy);
+        list.getSelectionModel().select(copy);
+    }
+
+    /** Puts one live tab to sleep now, as RAM pressure would: saved (claude session and flags, its text), process ended. */
+    void hibernate(TerminalTab t) {
+        Thread.ofPlatform().daemon().start(() -> {
+            var saved = t.snapshot(ClaudeProbe.commandLines());
+            Platform.runLater(() -> {
+                if (saved == null || !t.live()) return;
+                t.sleep(saved);
+                if (t == selected()) show(t);
+                refresh();
+            });
+        });
+    }
+
+    /** Closes the given tabs (close, close above/below/others), asking first if any of them has claude mid-reply. */
+    void closeTabs(List<TerminalTab> which) {
+        if (which.isEmpty()) return;
+        var busy = which.stream().filter(TerminalTab::live).flatMap(t -> ClaudeProbe.of(t.connector.process.pid()).stream())
+                .filter(c -> !c.idle()).map(c -> c.name != null ? c.name : c.sessionId).toList();
+        if (!busy.isEmpty() && !Ui.confirm(stage, "Still working: " + String.join(", ", busy)
+                + ".\nClosing ends them mid-reply (the conversation stays on disk and can be resumed).")) return;
+        which.forEach(this::close);
     }
 
     /** "Restore all": starts every sleeping tab (claude sessions resume with their flags); the shown tab stays shown. */

@@ -20,6 +20,27 @@ public final class TestHooks {
                         + "/" + app.tabs.size() + ", focus on " + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName())));
             }
         });
+        // the tab menu's actions, on plain shells
+        if (o.testMenu) Thread.ofPlatform().daemon().start(() -> {
+            Runnable state = () -> System.err.println("test-menu:   " + app.tabs.stream()
+                    .map(t -> (t.live() ? "live " : "asleep ") + t.where() + (t.sleeping != null && t.sleeping.screen != null ? " [text]" : ""))
+                    .toList());
+            Bench.sleep(1500);
+            Platform.runLater(() -> { app.wakeAll(); System.err.println("test-menu: restore all"); });
+            Bench.sleep(3000);
+            Platform.runLater(() -> { app.hibernate(app.tabs.get(1)); System.err.println("test-menu: hibernate tab 2"); });
+            Bench.sleep(3000);
+            Platform.runLater(state);
+            Platform.runLater(() -> { app.duplicate(app.tabs.get(0)); System.err.println("test-menu: duplicate tab 1"); state.run(); });
+            Bench.sleep(2000);
+            Platform.runLater(() -> { app.closeTabs(List.copyOf(app.tabs.subList(0, 2))); System.err.println("test-menu: close above tab 3"); state.run(); });
+            Bench.sleep(1500);
+            Platform.runLater(() -> { app.closeTabs(List.copyOf(app.tabs.subList(1, app.tabs.size()))); System.err.println("test-menu: close below tab 1"); state.run(); });
+            Bench.sleep(1000);
+            Platform.runLater(() -> app.copyCommand(app.tabs.get(0)));
+            Bench.sleep(3000);
+            Platform.runLater(() -> System.err.println("test-menu: clipboard = " + javafx.scene.input.Clipboard.getSystemClipboard().getString()));
+        });
         // Ctrl+2 jumps to tab 2, then "Restore all" wakes every sleeping tab
         if (o.testWakeAll) Thread.ofPlatform().daemon().start(() -> {
             Bench.sleep(1500);

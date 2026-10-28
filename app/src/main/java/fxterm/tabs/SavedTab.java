@@ -38,6 +38,14 @@ public final class SavedTab {
         return command().stream().map(a -> a.contains(" ") ? "\"" + a + "\"" : a).collect(Collectors.joining(" "));
     }
 
+    /** The line that brings it back in any cmd window: cd into its folder, then claude --resume with its flags, or
+     *  its shell. */
+    String resumeLine() {
+        var dir = cwd != null ? cwd : System.getProperty("user.home");
+        List<String> what = claude() ? command().subList(2, command().size()) : command();
+        return "cd /d \"" + dir + "\" & " + what.stream().map(a -> a.contains(" ") ? "\"" + a + "\"" : a).collect(Collectors.joining(" "));
+    }
+
     /** The shell of a started command line, when it is one of the known shells. */
     static String shellOf(List<String> argv) {
         if (argv.isEmpty()) return null;

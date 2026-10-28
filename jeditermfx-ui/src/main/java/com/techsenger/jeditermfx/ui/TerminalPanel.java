@@ -332,6 +332,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
             graphicsContext.setImageSmoothing(false);
         }
         this.canvas.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            lastKeyNanos = System.nanoTime();
             if (e.isConsumed()) {
                 return;
             }
@@ -614,7 +615,11 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         // fxterm-tabs fork: draw now rather than at the next timer tick, so a keystroke's echo is not held back by up
         // to a frame. At most one repaint is queued, and within MIN_REPAINT_NANOS of the last one the timer takes
         // over, so a flood of output still cannot repaint faster than that.
-        if (painting && System.nanoTime() - lastRepaintNanos > MIN_REPAINT_NANOS && repaintQueued.compareAndSet(false, true)) {
+        // Right after a keystroke the gap is MIN_REPAINT_NANOS (the echo shows at once); otherwise, for streamed output
+        // such as a claude reply or spinner, STREAM_REPAINT_NANOS, which is plenty for reading and costs far less CPU.
+        var now = System.nanoTime();
+        var gap = now - lastKeyNanos < TYPING_WINDOW_NANOS ? MIN_REPAINT_NANOS : STREAM_REPAINT_NANOS;
+        if (painting && now - lastRepaintNanos > gap && repaintQueued.compareAndSet(false, true)) {
             Platform.runLater(() -> {
                 repaintQueued.set(false);
                 if (painting && needRepaint.getAndSet(false)) {
@@ -630,7 +635,8 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
 
     // fxterm-tabs fork: a panel that is not on screen (hidden tab, minimised window) does not paint at all; its model
     // keeps updating, and turning painting back on draws the current state once.
-    private static final long MIN_REPAINT_NANOS = 8_000_000;
+    private static final long MIN_REPAINT_NANOS = 8_000_000, STREAM_REPAINT_NANOS = 33_000_000, TYPING_WINDOW_NANOS = 300_000_000;
+    private volatile long lastKeyNanos;
     private volatile boolean painting = true;
     private volatile long lastRepaintNanos;
     private final AtomicBoolean repaintQueued = new AtomicBoolean();

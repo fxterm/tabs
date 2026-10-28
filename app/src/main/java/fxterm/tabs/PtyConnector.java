@@ -67,7 +67,6 @@ public final class PtyConnector implements TtyConnector {
 
     @Override public int read(char[] buf, int offset, int length) throws IOException {
         var n = reader.read(buf, offset, length);
-        IdleTrim.activity();
         if (n > 0) watchCwd(buf, offset, n);
         return n;
     }

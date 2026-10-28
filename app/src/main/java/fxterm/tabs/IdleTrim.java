@@ -3,19 +3,20 @@ package fxterm.tabs;
 import module java.base;
 import java.lang.foreign.*;
 
-/** Gives RAM back while idle. Stage one after QUIET_MS without activity: page the working set out (nearly free, and
- *  the pages come back in milliseconds when touched). Stage two after DEEP_MS: collect garbage first, then page out.
- *  Each stage runs once per idle stretch. Activity is output from any shell or a key press. */
+/** Gives RAM back while the user is not typing. After QUIET_MS without a key: page the working set out (nearly free,
+ *  the pages come back in milliseconds when touched), then again every REPEAT_MS while no key is pressed, since a claude
+ *  reply or spinner keeps producing output (and garbage) for minutes; every DEEP_MS, collect garbage first. Output is not
+ *  activity: a busy claude in any tab used to keep the RAM from ever being given back. */
 public final class IdleTrim {
 
-    static final long QUIET_MS = 15_000, DEEP_MS = 120_000;
+    static final long QUIET_MS = 15_000, REPEAT_MS = 60_000, DEEP_MS = 300_000;
 
     static volatile long last = System.currentTimeMillis();
-    static volatile int stage = 2;
+    static volatile long lastTrim, lastDeep;
 
+    /** A key press (the only thing that counts as activity). */
     public static void activity() {
         last = System.currentTimeMillis();
-        stage = 0;
     }
 
     public static void start() {
@@ -23,9 +24,16 @@ public final class IdleTrim {
         Thread.ofPlatform().name("idle-trim").daemon().start(() -> {
             while (true) {
                 try { Thread.sleep(5_000); } catch (InterruptedException e) { return; }
-                var idle = System.currentTimeMillis() - last;
-                if (stage == 0 && idle >= QUIET_MS) { trim.run(); stage = 1; }
-                if (stage == 1 && idle >= DEEP_MS) { System.gc(); trim.run(); stage = 2; }
+                var now = System.currentTimeMillis();
+                if (now - last < QUIET_MS) continue;
+                if (now - lastDeep >= DEEP_MS) {
+                    System.gc();
+                    trim.run();
+                    lastDeep = lastTrim = now;
+                } else if (now - lastTrim >= REPEAT_MS || lastTrim < last) {
+                    trim.run();
+                    lastTrim = now;
+                }
             }
         });
     }

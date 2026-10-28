@@ -11,6 +11,35 @@ public final class TestHooks {
 
     static void start(TabsWindow app, Scene scene, Options o) {
         if (o.bench > 0) new Bench(app.selected(), o).run();
+        // a scripted demo, for screenshots: one step per line of the file, tabs counted from 1 as listed
+        //   wake N | select N | send N text (\r is Enter) | sleep MS | compose text | history | close-panel | shot FILE.png
+        if (o.demo != null) Thread.ofPlatform().daemon().start(() -> {
+            try {
+                for (var line : Files.readAllLines(Path.of(o.demo))) {
+                    var p = line.strip().split(" ", 3);
+                    if (p[0].isEmpty() || p[0].startsWith("#")) continue;
+                    if (p[0].equals("sleep")) { Bench.sleep(Long.parseLong(p[1])); continue; }
+                    Platform.runLater(() -> {
+                        try {
+                            switch (p[0]) {
+                                case "wake" -> app.wake(app.tabs.get(Integer.parseInt(p[1]) - 1));
+                                case "select" -> app.list.getSelectionModel().select(Integer.parseInt(p[1]) - 1);
+                                case "send" -> app.tabs.get(Integer.parseInt(p[1]) - 1).connector.write(p[2].replace("\\r", "\r").replace("\\e", "\u001b"));
+                                case "compose" -> { app.toggleCompose(); app.composer.text.setText(line.strip().substring(8).replace("\\n", "\n")); }
+                                case "history" -> app.showHistory();
+                                case "close-panel" -> { app.hideHistory(); if (app.bottom.getChildren().contains(app.composer)) app.toggleCompose(); }
+                                case "shot" -> Snapshot.write(scene, p[1]);
+                                default -> System.err.println("demo: unknown step " + line);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("demo: " + line + ": " + e);
+                        }
+                    });
+                }
+            } catch (IOException e) {
+                System.err.println("demo: " + e);
+            }
+        });
         // font size: Ctrl+= twice, Ctrl+- once, Ctrl+wheel up one notch, Ctrl+0; the size and the shown grid after each
         if (o.testFont != null) Thread.ofPlatform().daemon().start(() -> {
             Bench.sleep(2500);

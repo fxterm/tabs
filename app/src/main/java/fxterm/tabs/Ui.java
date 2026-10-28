@@ -47,7 +47,16 @@ public final class Ui {
 
     /** A tab row. A coloured tab keeps its colour as the side bar and a faint tint; otherwise the bar shows only on the
      *  selected tab, in the theme's blue. */
+    /** A tab's colour fills its row and the frame (--tab-fill full); by default it shows only as the strip at the
+     *  row's edge, and rows and frame keep the standard greys. */
+    static boolean fullColour;
+
     static String cell(TabbyTheme t, boolean selected, String colour) {
+        if (!fullColour) {
+            var bar = colour != null ? colour : selected ? frame(t, null) : "transparent";
+            var fill = selected ? frame(t, null) : shade(t.background, -10);
+            return "-fx-padding: 3 2 3 4; -fx-border-width: 0 0 0 3; -fx-border-color: " + bar + "; -fx-background-color: " + fill + ";";
+        }
         if (selected) {
             // the active tab is filled with the frame colour, which also borders its terminal: one shape
             var frame = frame(t, colour);
@@ -63,7 +72,7 @@ public final class Ui {
     /** The colour that joins the active tab to its terminal: the tab's own colour (toned down so white text stays
      *  readable on it), or for a tab without one a neutral grey a few steps lighter than the background. */
     static String frame(TabbyTheme t, String colour) {
-        return colour != null ? mix(t.background, colour, 0.45) : shade(t.background, 26);
+        return colour != null && fullColour ? mix(t.background, colour, 0.45) : shade(t.background, 26);
     }
 
     /** White or near-black, whichever has the higher contrast ratio against the fill (WCAG relative luminance). */

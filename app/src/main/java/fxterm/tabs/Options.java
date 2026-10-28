@@ -6,6 +6,8 @@ import module java.base;
  *  Terminal: --tabs N --shell CMD --scrollback N --font N (default: Tabby's) --family F --fps N --theme tabby|builtin
  *  Session: --restore true|false (reopen the last session's tabs asleep) --state FILE (session file) --cwd DIR (for new tabs) --quit-after MS (tests) --wake-all true (start every restored tab now)
  *  Sleep: --hibernate-free-mb N (0 = never; sleep idle hidden claude tabs when free RAM is below this) --hibernate-idle-min N
+ *  Look: --tab-fill strip|full (a tab's colour as the strip at its edge only, the default, or filling the row and
+ *  the frame round the terminal)
  *  Window: --offscreen true (unattended tests: off the visible desktop and out of the taskbar) --snapshot FILE.png --snapshot-wait MS
  *  Bench: --bench N (keystrokes) --bench-wait MS --bench-gap MS --bench-label S --bench-out FILE --bench-exit true
  *         --bench-prompt TEXT (typed and sent first) --bench-prompt-wait MS --bench-dump FILE (buffer text at the end) */
@@ -15,7 +17,7 @@ public final class Options {
     long benchWait = 20_000, benchGap = 150, benchPromptWait = 3_000, snapshotWait = 8_000, quitAfter = 0;
     double font = 0;
     boolean offscreen, benchExit, restore = true, wakeAll, testKeys, testWake, testWakeAll, testMenu, testCompose, testWindows, testSeparators, testOrder, testEsc, serve;
-    String shell = "cmd.exe", family = "Consolas", theme = "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd, testLook, testHistory, testFont;
+    String shell = "cmd.exe", family = "Consolas", theme = "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd, testLook, testHistory, testFont, tabFill = "strip";
 
     static Options parse(List<String> args) {
         var o = new Options();
@@ -52,6 +54,7 @@ public final class Options {
                 case "--test-menu" -> o.testMenu = Boolean.parseBoolean(v);
                 case "--test-look" -> o.testLook = v;
                 case "--test-font" -> o.testFont = v;
+                case "--tab-fill" -> o.tabFill = v;
                 case "--test-compose" -> o.testCompose = Boolean.parseBoolean(v);
                 case "--test-windows" -> o.testWindows = Boolean.parseBoolean(v);
                 case "--test-history" -> o.testHistory = v;

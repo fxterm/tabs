@@ -23,6 +23,7 @@ public final class TabsApp extends Application {
     public void start(Stage first) throws Exception {
         options = Options.parse(getParameters().getRaw());
         theme = TabbyTheme.load(options.theme);
+        Ui.fullColour = "full".equals(options.tabFill);
         // a test run (off-screen or its own state file) neither reads nor writes the user's saved size
         FontSize.init(options.font > 0 ? options.font : theme.fontSize, !options.offscreen && options.state == null);
         store = new SessionStore(options);

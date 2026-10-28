@@ -194,7 +194,7 @@ public final class TabCell extends ListCell<TerminalTab> {
      *  path lines are dimmed less; elsewhere it is the theme's text colour. */
     void textOn(boolean selected, String colour) {
         var t = side.theme;
-        var fg = selected ? Ui.textOn(Ui.frame(t, colour)) : colour != null ? Ui.shade(t.foreground, 20) : t.foreground;
+        var fg = selected ? Ui.textOn(Ui.frame(t, colour)) : colour != null && Ui.fullColour ? Ui.shade(t.foreground, 20) : t.foreground;
         number.setStyle("-fx-text-fill: " + (selected ? fg : "#ffffff") + "; -fx-font-size: 13; -fx-font-weight: bold;");
         name.setStyle("-fx-text-fill: " + fg + "; -fx-font-size: 15; -fx-font-weight: bold;");
         sub.setStyle("-fx-text-fill: " + fg + "; -fx-opacity: " + (selected ? 0.9 : 0.75) + "; -fx-font-size: 12;");

@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.github.fxterm</groupId>
         <artifactId>fxterm-tabs-parent</artifactId>
-        <version>0.1-SNAPSHOT</version>
+        <version>0.1.0</version>
     </parent>
     <artifactId>fxterm-jeditermfx-ui</artifactId>
     <description>Fork of com.techsenger.jeditermfx:jeditermfx-ui 1.1.0 (Apache 2.0 / LGPL 3, licence files beside this pom). Packages kept unchanged so the diff against upstream stays readable; changes are listed in FORK.md.</description>

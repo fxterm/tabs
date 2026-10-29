@@ -23,6 +23,7 @@ public final class Control {
               move id= to= [window=]                 to index `to` of its window, or of another window
               drag id= row= [after=true|false]        as a mouse drop on list row `row` (top or bottom half)
               rename id= title=                      (empty title: the program's own title again)
+              collapse id=<label> [on=true|false]     fold or unfold a group (toggles without on=)
               color id= color=#rrggbb|none
               send id= text= [enter=true]            type text into the tab ("\\r" for Enter also works)
               buffer id= [lines=50]                  the last lines of its text
@@ -186,6 +187,12 @@ public final class Control {
                 else if (r.path("bottom").asBoolean(false)) panel.scrollTo(Integer.MAX_VALUE);
                 else panel.scrollBy(r.path("by").asInt());
             }
+            case "collapse" -> {
+                var t = tab(app, r);
+                if (!t.separator) throw new IllegalArgumentException("tab " + t.id + " is not a group label");
+                if (t.collapsed != r.path("on").asBoolean(!t.collapsed)) t.owner.toggleGroup(t);
+                out.put("collapsed", t.collapsed);
+            }
             case "hibernate" -> { var t = tab(app, r); t.owner.hibernate(t); }
             case "wake" -> { var t = tab(app, r); t.owner.wake(t); }
             case "close" -> { var t = tab(app, r); t.owner.close(t); }
@@ -212,7 +219,8 @@ public final class Control {
             var tabs = wn.putArray("tabs");
             for (var t : w.tabs) {
                 var n = tabs.addObject().put("id", t.id).put("index", w.tabs.indexOf(t)).put("title", t.shown());
-                if (t.separator) { n.put("separator", true); continue; }
+                if (t.separator) { n.put("separator", true).put("collapsed", t.collapsed); continue; }
+                if (w.folded(t)) n.put("folded", true);
                 n.put("folder", t.where()).put("live", t.live()).put("selected", t == w.selected()).put("color", t.color.get());
                 if (t.live()) {
                     n.put("pid", t.connector.process.pid());

@@ -29,6 +29,8 @@ public final class TerminalTab {
     Runnable wake = () -> { };
     /** A separator row: a label that groups the tabs under it; it runs nothing and cannot be selected. */
     boolean separator;
+    /** A separator's group folded away, as a tree node: its tabs are not shown, and it still moves as one. */
+    boolean collapsed;
     /** Restored from a tab that was the shown one when Tabs closed. */
     boolean wasSelected;
     /** The window holding it now; changes when the tab is moved to another window. */
@@ -76,7 +78,11 @@ public final class TerminalTab {
     }
 
     static TerminalTab restored(Options o, TabbyTheme theme, SavedTab s) {
-        if (s.separator) return separator(o, theme, s.customTitle != null ? s.customTitle : s.title);
+        if (s.separator) {
+            var sep = separator(o, theme, s.customTitle != null ? s.customTitle : s.title);
+            sep.collapsed = s.collapsed;
+            return sep;
+        }
         var restoredSelected = s.selected;
         var t = new TerminalTab(o, theme, s.command(), s.cwd);
         t.custom.set(s.customTitle);
@@ -150,6 +156,7 @@ public final class TerminalTab {
             s.separator = true;
             s.title = shown();
             s.customTitle = shown();
+            s.collapsed = collapsed;
             return s;
         }
         if (sleeping != null) return decorate(sleeping);

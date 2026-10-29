@@ -150,5 +150,25 @@ public final class Ui {
         return r == all ? 0 : r == one ? 1 : -1;
     }
 
+    /** Closing a group: 0 remove only the label (its tabs stay), 1 close the group and its tabs, -1 cancel.
+     *  F2 keep the tabs, F3 close them too, Esc cancel; keys are ignored for the first moments. */
+    static int closeGroup(Stage owner, String label, int tabs) {
+        var keep = new ButtonType("Remove the label, keep the " + tabs + " tabs (F2)", ButtonBar.ButtonData.OK_DONE);
+        var all = new ButtonType("Close the group and its " + tabs + " tabs (F3)", ButtonBar.ButtonData.OTHER);
+        var a = new Alert(Alert.AlertType.CONFIRMATION, "Keep the tabs: only the label goes; its tabs stay where they are."
+                + "\nClose them too: the tabs end (they stay in History).\n\nEsc: cancel", keep, all, ButtonType.CANCEL);
+        a.initOwner(owner);
+        a.setHeaderText("Close the group \"" + label + "\"?");
+        var armedAt = System.currentTimeMillis() + 1000;
+        a.getDialogPane().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (System.currentTimeMillis() < armedAt) { e.consume(); return; }
+            if (e.getCode() == KeyCode.F2) { a.setResult(keep); a.close(); e.consume(); }
+            else if (e.getCode() == KeyCode.F3) { a.setResult(all); a.close(); e.consume(); }
+            else if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) e.consume();
+        });
+        var r = a.showAndWait().orElse(ButtonType.CANCEL);
+        return r == keep ? 0 : r == all ? 1 : -1;
+    }
+
     private Ui() { }
 }

@@ -68,7 +68,9 @@ public final class TabCell extends ListCell<TerminalTab> {
         number.setPrefWidth(18);
         number.setAlignment(Pos.CENTER_RIGHT);
         var top = new HBox(0, number, iconBox);
-        top.setAlignment(Pos.TOP_LEFT);
+        // the number on the icon's middle line, not hanging at its top
+        top.setAlignment(Pos.CENTER_LEFT);
+        top.setMinHeight(26);
         var corner = new VBox(0, top, mark);
         corner.setFillWidth(true);
         corner.setMinWidth(48);
@@ -159,8 +161,17 @@ public final class TabCell extends ListCell<TerminalTab> {
         var line = new Region();
         line.setStyle("-fx-background-color: " + Ui.shade(t.background, 40) + "; -fx-min-height: 1; -fx-max-height: 1; -fx-pref-height: 1;");
         HBox.setHgrow(line, Priority.ALWAYS);
-        sepRow = new HBox(8, sepLabel, line);
+        arrow.setStyle("-fx-text-fill: " + t.colors.get(4) + "; -fx-font-size: 12; -fx-min-width: 12;");
+        sepRow = new HBox(6, arrow, sepLabel, line);
         sepRow.setAlignment(Pos.CENTER_LEFT);
+        // a click on a label (not the end of a drag) folds or unfolds its group
+        setOnMouseClicked(e -> {
+            var item = getItem();
+            if (item != null && item.separator && e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.isStillSincePress()) {
+                side.app.toggleGroup(item);
+                e.consume();
+            }
+        });
     }
 
     @Override
@@ -175,11 +186,25 @@ public final class TabCell extends ListCell<TerminalTab> {
             setPrefHeight(Sidebar.ROW);
             return;
         }
-        if (t.separator) {
-            // a label with a line after it; nothing to open, nothing to measure
-            sepLabel.setText(t.shown().toUpperCase(Locale.ROOT));
+        // a tab in a folded group takes no room (it keeps its place in the list, so indexes stay what they were)
+        if (side.app.folded(t)) {
+            setGraphic(null);
             setTooltip(null);
             setContextMenu(null);
+            setStyle("-fx-padding: 0; -fx-background-color: transparent; -fx-border-width: 0;");
+            setMinHeight(0);
+            setPrefHeight(0);
+            setMaxHeight(0);
+            return;
+        }
+        if (t.separator) {
+            // an arrow, the label (with how many tabs it holds while folded), a line after it
+            var inside = side.app.group(t).size() - 1;
+            arrow.setText(t.collapsed ? "▸" : "▾");
+            sepLabel.setText(t.shown().toUpperCase(Locale.ROOT) + (t.collapsed ? "  (" + inside + ")" : ""));
+            setTooltip(sepTip);
+            sepTip.setText((t.collapsed ? "Click to show its " + inside + " tabs" : "Click to fold this group") + "; drag to move the group");
+            setTooltip(null);
             setGraphic(sepRow);
             setPrefHeight(Sidebar.SEPARATOR_ROW);
             setMinHeight(Sidebar.SEPARATOR_ROW);
@@ -269,7 +294,8 @@ public final class TabCell extends ListCell<TerminalTab> {
     }
 
     ContextMenu openMenu;
-    final Label sepLabel = new Label();
+    final Label sepLabel = new Label(), arrow = new Label();
+    final Tooltip sepTip = new Tooltip();
     final HBox sepRow;
 
     @Override

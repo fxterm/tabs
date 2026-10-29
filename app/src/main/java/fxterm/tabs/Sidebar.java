@@ -148,10 +148,13 @@ public final class Sidebar {
         var group = new MenuItem("Insert separator above…");
         group.setOnAction(e -> app.insertSeparator(t));
         icon(group, "\u2014");
-        var remove = new MenuItem("Delete separator");
-        remove.setOnAction(e -> { app.tabs.remove(t); app.refresh(); });
+        var remove = new MenuItem("Close group (choose: keep its tabs or close them)");
+        remove.setOnAction(e -> app.closeGroup(t));
         icon(remove, "\u2715");
-        return new ContextMenu(rename, group, new SeparatorMenuItem(), remove);
+        var fold = new MenuItem(t.collapsed ? "Show the group's tabs" : "Fold the group");
+        fold.setOnAction(e -> app.toggleGroup(t));
+        icon(fold, t.collapsed ? "▸" : "▾");
+        return new ContextMenu(fold, rename, group, new SeparatorMenuItem(), remove);
     }
 
     static void icon(MenuItem item, String glyph) {

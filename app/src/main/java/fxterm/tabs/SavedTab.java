@@ -11,6 +11,8 @@ public final class SavedTab {
     public List<String> claudeArgs = new ArrayList<>();
     /** A separator: no program, just a label (title) that groups the tabs under it. */
     public boolean separator;
+    /** A separator whose group was folded away. */
+    public boolean collapsed;
     /** The tab that was shown in its window when Tabs closed; shown again on the next start. */
     public boolean selected;
     /** Which window it was in (0 = the first). */

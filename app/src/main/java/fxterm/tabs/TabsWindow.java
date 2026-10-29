@@ -168,7 +168,8 @@ public final class TabsWindow {
 
     /** Ctrl+Tab and Ctrl+Shift+Tab: the next or previous real tab, round the end, over separators. */
     void step(int by) {
-        var real = realTabs();
+        // tabs in a folded group are passed over, as a browser does
+        var real = realTabs().stream().filter(t -> !folded(t) || t == selected()).toList();
         if (real.isEmpty()) return;
         var at = Math.max(0, real.indexOf(selected()));
         list.getSelectionModel().select(real.get(Math.floorMod(at + by, real.size())));
@@ -213,6 +214,11 @@ public final class TabsWindow {
      *  (see wake), so a restored session starts only for a tab the user actually wants back. */
     void show(TerminalTab t) {
         if (t == null || moving) return;
+        // a tab chosen in a folded group (by its number, from another tool) opens its group
+        if (folded(t)) {
+            headOf(t).collapsed = false;
+            Events.log("expand", "head", Events.tab(headOf(t)), "because", Events.tab(t));
+        }
         if (t.sleeping == null || options.wakeAll) start(t);
         content.getChildren().setAll(t.host);
         paint();
@@ -438,12 +444,62 @@ public final class TabsWindow {
      *  dragged row's own place taken out first (rows below it move up by one). */
     void drop(TerminalTab t, int row, boolean after) {
         var at = row + (after ? 1 : 0);
+        // below a folded group's label means after the whole group, not into its hidden tabs
+        if (after && row >= 0 && row < tabs.size() && tabs.get(row).separator && tabs.get(row).collapsed)
+            at = row + group(tabs.get(row)).size();
         if (t.separator) {
             moveGroup(t, at);
             return;
         }
         if (tabs.indexOf(t) < at) at--;
         move(t, at);
+    }
+
+    /** The separator heading the group a tab is in, or null for a tab above every separator. */
+    TerminalTab headOf(TerminalTab t) {
+        for (var i = tabs.indexOf(t) - 1; i >= 0; i--) if (tabs.get(i).separator) return tabs.get(i);
+        return null;
+    }
+
+    /** True for a tab whose group is folded away. */
+    boolean folded(TerminalTab t) {
+        if (t.separator) return false;
+        var head = headOf(t);
+        return head != null && head.collapsed;
+    }
+
+    /** Folds or unfolds a group. Folding the group of the shown tab shows the nearest tab still in sight. */
+    void toggleGroup(TerminalTab head) {
+        head.collapsed = !head.collapsed;
+        Events.log(head.collapsed ? "collapse" : "expand", "head", Events.tab(head), "size", group(head).size() - 1);
+        var shown = selected();
+        if (head.collapsed && shown != null && folded(shown)) {
+            var i = tabs.indexOf(head);
+            TerminalTab next = null;
+            for (var d = 1; d < tabs.size() && next == null; d++) {
+                for (var j : new int[] {i + d, i - d})
+                    if (j >= 0 && j < tabs.size() && !tabs.get(j).separator && !folded(tabs.get(j))) { next = tabs.get(j); break; }
+            }
+            if (next != null) list.getSelectionModel().select(next);
+        }
+        refresh();
+        focusSoon();
+    }
+
+    /** Closing a group asks: remove only the label (its tabs stay, joining the group above), or close the group with
+     *  all its tabs, or cancel. An empty group just goes. */
+    void closeGroup(TerminalTab head) {
+        var inside = group(head).subList(1, group(head).size());
+        var choice = inside.isEmpty() ? 0 : Ui.closeGroup(stage, head.shown(), inside.size());
+        Events.log("close-group", "head", Events.tab(head), "size", inside.size(), "choice", choice == 0 ? "label" : choice == 1 ? "all" : "cancel");
+        if (choice < 0) return;
+        if (choice == 1) {
+            if (!TabsApp.okToEnd(stage, inside, "Closing the group ends its " + inside.size() + " tabs (they stay in History).")) return;
+            List.copyOf(inside).forEach(this::close);
+        }
+        tabs.remove(head);
+        refresh();
+        focusSoon();
     }
 
     /** A separator is the head of a group: it and the tabs under it, down to the next separator. */

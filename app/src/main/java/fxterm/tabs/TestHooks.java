@@ -60,7 +60,7 @@ public final class TestHooks {
                                 case "wake" -> app.wake(app.tabs.get(Integer.parseInt(p[1]) - 1));
                                 case "select" -> app.list.getSelectionModel().select(Integer.parseInt(p[1]) - 1);
                                 case "send" -> app.tabs.get(Integer.parseInt(p[1]) - 1).connector.write(p[2].replace("\\r", "\r").replace("\\e", "\u001b"));
-                                case "compose" -> { app.toggleCompose(); app.composer.text.setText(line.strip().substring(8).replace("\\n", "\n")); }
+                                case "compose" -> { app.toggleCompose(); app.composer.setText(line.strip().substring(8).replace("\\n", "\n")); }
                                 case "history" -> app.showHistory();
                                 case "close-panel" -> { app.hideHistory(); if (app.bottom.getChildren().contains(app.composer)) app.toggleCompose(); }
                                 case "shot" -> Snapshot.write(scene, p[1]);
@@ -118,7 +118,7 @@ public final class TestHooks {
             Bench.sleep(4500);
             Platform.runLater(() -> {
                 app.toggleCompose();
-                app.composer.text.setText("A message written in the compose box,\nsent to the tab with Ctrl+Enter.");
+                app.composer.setText("A message written in the compose box,\nsent to the tab with Ctrl+Enter.");
                 // the figures from the user's example, so the badge colours can be seen side by side
                 var mb = new long[] {266, 318, 398, 17};
                 for (var i = 0; i < Math.min(4, app.tabs.size()); i++) app.tabs.get(i).ramBytes = mb[i] * 1024 * 1024;
@@ -137,7 +137,7 @@ public final class TestHooks {
             Bench.sleep(2500);
             Platform.runLater(() -> {
                 app.toggleCompose();
-                app.composer.text.setText("echo COMPOSE-" + "OK");
+                app.composer.setText("echo COMPOSE-" + "OK");
                 app.composer.send(true);
             });
             Bench.sleep(1500);

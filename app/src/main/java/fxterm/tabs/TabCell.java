@@ -63,6 +63,10 @@ public final class TabCell extends ListCell<TerminalTab> {
         iconBox.setAlignment(Pos.CENTER);
         iconBox.setMinHeight(26);
         HBox.setHgrow(iconBox, Priority.ALWAYS);
+        // the number sits right-aligned in room for two digits, so 1..9 line up with 10 and up
+        number.setMinWidth(18);
+        number.setPrefWidth(18);
+        number.setAlignment(Pos.CENTER_RIGHT);
         var top = new HBox(0, number, iconBox);
         top.setAlignment(Pos.TOP_LEFT);
         var corner = new VBox(0, top, mark);

@@ -296,10 +296,9 @@ public final class TabsWindow {
         var here = Footer.button("Quote & reply", "#4a4a4a", "Put it in the compose box as a quote, to answer point by point with >>", () -> {
             var md = Quote.markdown(buffer, sel) + "\n\n";
             if (!bottom.getChildren().contains(composer)) toggleCompose();
-            var area = composer.text;
-            area.insertText(area.getCaretPosition(), md);
+            composer.insert(md);
             done(panel);
-            Platform.runLater(area::requestFocus);
+            Platform.runLater(composer::focusEditor);
         });
         var outside = Footer.button("Quote in notepadfx", "#4a4a4a", "Write it to a reply file (beside the tab's PRP, or a temp file) and open it in notepadfx", () -> {
             var md = Quote.markdown(buffer, sel) + "\n\n";
@@ -333,8 +332,9 @@ public final class TabsWindow {
             bottom.getChildren().remove(composer);
             focusSoon();
         } else {
+            composer.ensure();
             bottom.getChildren().addFirst(composer);
-            Platform.runLater(composer.text::requestFocus);
+            Platform.runLater(composer::focusEditor);
         }
     }
 

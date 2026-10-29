@@ -21,6 +21,8 @@ public final class TabCell extends ListCell<TerminalTab> {
     final HBox row;
     final Tooltip tip = new Tooltip();
     final javafx.scene.image.ImageView project = new javafx.scene.image.ImageView();
+    /** The tab being dragged, from any window (one drag at a time in the process). */
+    static TerminalTab dragged;
 
     TabCell(Sidebar side) {
         this.side = side;
@@ -69,18 +71,22 @@ public final class TabCell extends ListCell<TerminalTab> {
         tip.setShowDelay(javafx.util.Duration.millis(400));
         setPrefWidth(0);
         // drag a tab onto another to put it there
+        // The dragged tab is remembered when the drag starts. The list redraws during a drag (RAM figures, titles) and
+        // a row may then show another tab, so asking the source row at the drop moved the wrong tab.
         setOnDragDetected(e -> {
             if (getItem() == null) return;
+            dragged = getItem();
+            Events.log("drag-start", "tab", Events.tab(dragged), "row", getIndex());
             var db = startDragAndDrop(TransferMode.MOVE);
             db.setDragView(snapshot(null, null));
             var c = new ClipboardContent();
-            c.putString("tab " + getIndex());
+            c.putString("tab " + dragged.id);
             db.setContent(c);
             e.consume();
         });
         // the drop goes before this row (pointer in its top half) or after it (bottom half); a line shows which
         setOnDragOver(e -> {
-            if (e.getGestureSource() instanceof TabCell src && src != this) {
+            if (dragged != null && e.getGestureSource() instanceof TabCell && dragged != getItem()) {
                 e.acceptTransferModes(TransferMode.MOVE);
                 var after = e.getY() > getHeight() / 2;
                 var line = side.theme.colors.get(4);
@@ -104,22 +110,28 @@ public final class TabCell extends ListCell<TerminalTab> {
         // chosen" correction redraws the list under the drag
         addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> { if (getItem() != null && getItem().separator && e.isPrimaryButtonDown()) e.consume(); });
         setOnDragDropped(e -> {
-            if (e.getGestureSource() instanceof TabCell src && src.getItem() != null) {
+            var tab = dragged;
+            if (tab != null && e.getGestureSource() instanceof TabCell) {
+                dragged = null;
                 setBorder(null);
                 var after = e.getY() > getHeight() / 2;
                 var at = isEmpty() || getItem() == null ? Integer.MAX_VALUE : getIndex() + (after ? 1 : 0);
+                Events.log("drop", "tab", Events.tab(tab), "onRow", getIndex(), "onto", Events.tab(getItem()), "after", after);
                 // within this window it is a reorder (taking the tab out first shifts the rows below it up by one);
                 // from another window the tab moves here, still running
-                if (src.side == side) side.app.drop(src.getItem(), getIndex(), after);
-                else side.app.app.moveTo(src.getItem(), side.app, at);
+                if (tab.owner == side.app) side.app.drop(tab, getIndex(), after);
+                else side.app.app.moveTo(tab, side.app, at);
+                Events.log("dropped", "tab", Events.tab(tab));
                 e.setDropCompleted(true);
             }
             e.consume();
         });
         // dropped where nothing took it: outside every window it opens in a new window there, as a browser does
         setOnDragDone(e -> {
-            var tab = getItem();
+            var tab = dragged;
+            dragged = null;
             if (e.getTransferMode() != null || tab == null || tab.owner == null || tab.separator) return;
+            Events.log("drag-out", "tab", Events.tab(tab));
             var at = TitleBar.cursor();
             if (at == null) return;
             var st = tab.owner.stage;

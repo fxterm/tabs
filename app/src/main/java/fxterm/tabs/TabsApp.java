@@ -22,6 +22,8 @@ public final class TabsApp extends Application {
     @Override
     public void start(Stage first) throws Exception {
         options = Options.parse(getParameters().getRaw());
+        Events.init(options);
+        Events.log("start", "pid", ProcessHandle.current().pid());
         theme = TabbyTheme.load(options.theme);
         Ui.fullColour = "full".equals(options.tabFill);
         // a test run (off-screen or its own state file) neither reads nor writes the user's saved size
@@ -47,6 +49,7 @@ public final class TabsApp extends Application {
             w.open(state(states, i));
         }
         lastFocused = main;
+        Control.serve(this, options.state);
         IdleTrim.start();
         new Hibernator(this::hidden, options, s -> history.record(s, "hibernated")).start();
         ram = new RamWatch(this::allTabs, this::refreshAll);
@@ -126,10 +129,19 @@ public final class TabsApp extends Application {
         if (lastFocused == w) lastFocused = windows.getFirst();
     }
 
-    /** The window's own close button: the last window quits (everything saved); another window closes with its tabs,
-     *  after asking if any claude in it would be ended. */
+    /** The window's own close button. The last window quits (everything saved). With several windows open it asks,
+     *  as a browser does: close all (quit; every window comes back at the next start), only this one (its tabs end,
+     *  after asking if any claude in it is mid-turn), or cancel. */
     void closeWindow(TabsWindow w) {
         if (windows.size() <= 1) {
+            Events.log("window-close", "window", 0, "choice", "last");
+            quit();
+            return;
+        }
+        var choice = Ui.closeWhich(w.stage, windows.size(), w.realTabs().size());
+        Events.log("window-close", "window", windows.indexOf(w), "choice", choice == 0 ? "all" : choice == 1 ? "this" : "cancel");
+        if (choice < 0) return;
+        if (choice == 0) {
             quit();
             return;
         }
@@ -210,6 +222,8 @@ public final class TabsApp extends Application {
                 all.forEach(TerminalTab::close);
                 if (!options.offscreen && options.state == null) WindowState.saveAll(snapshot);
                 if (!options.offscreen && options.state == null || options.serve) Instance.release();
+                Control.release(options.state);
+                Events.log("quit", "windows", snapshot.size(), "tabs", saved.size());
                 Platform.exit();
                 System.exit(0);
             });

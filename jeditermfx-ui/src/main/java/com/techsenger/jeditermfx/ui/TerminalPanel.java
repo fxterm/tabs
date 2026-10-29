@@ -837,6 +837,16 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         }
     }
 
+    /** fxterm-tabs fork: scrolls by that many lines (negative: up), for the control channel. */
+    public void scrollBy(int lines) {
+        moveScrollBar(lines);
+    }
+
+    /** fxterm-tabs fork: to the top of the scrollback (Integer.MIN_VALUE) or the bottom (anything else). */
+    public void scrollTo(int where) {
+        scrollBar.setValue(where == Integer.MIN_VALUE ? scrollBar.getMin() : scrollBar.getMax());
+    }
+
     public void pageUp() {
         moveScrollBar(-myTermSize.getRows());
     }

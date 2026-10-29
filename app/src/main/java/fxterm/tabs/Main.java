@@ -8,8 +8,10 @@ import module java.base;
  *  Errors also go to ~/fxterm/tabs/fxterm-tabs.log, because a launch from Explorer has no console to show them. */
 public final class Main {
     public static void main(String[] args) throws IOException {
-        logToFile();
         var list = List.of(args);
+        // `fxterm-tabs ctl ...` talks to the running Tabs and prints its JSON reply (see Control)
+        if (!list.isEmpty() && list.getFirst().equals("ctl")) System.exit(Control.client(list.subList(1, list.size())));
+        logToFile();
         var request = Request.parse(list);
         if (request != null && Instance.forward(request)) System.exit(0);
         TabsApp.request = request;

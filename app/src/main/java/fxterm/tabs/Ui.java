@@ -129,5 +129,26 @@ public final class Ui {
         return a.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
     }
 
+    /** Closing one of several windows, as a browser asks: 0 close all windows (Tabs quits; every window and tab comes
+     *  back at the next start), 1 close only this window, -1 cancel. F2 all, F3 this window, Esc cancel; keys are
+     *  ignored for the first moments, as in confirm. */
+    static int closeWhich(Stage owner, int windows, int tabsHere) {
+        var all = new ButtonType("Close all " + windows + " windows (F2)", ButtonBar.ButtonData.OK_DONE);
+        var one = new ButtonType("Close this window (F3)", ButtonBar.ButtonData.OTHER);
+        var a = new Alert(Alert.AlertType.CONFIRMATION, "Close all windows: Tabs closes and every window comes back, with its tabs, the next time"
+                + " it starts.\nClose this window: only its " + tabsHere + " tabs end (they stay in History).\n\nEsc: cancel", all, one, ButtonType.CANCEL);
+        a.initOwner(owner);
+        a.setHeaderText("Close Tabs?");
+        var armedAt = System.currentTimeMillis() + 1000;
+        a.getDialogPane().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (System.currentTimeMillis() < armedAt) { e.consume(); return; }
+            if (e.getCode() == KeyCode.F2) { a.setResult(all); a.close(); e.consume(); }
+            else if (e.getCode() == KeyCode.F3) { a.setResult(one); a.close(); e.consume(); }
+            else if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) e.consume();
+        });
+        var r = a.showAndWait().orElse(ButtonType.CANCEL);
+        return r == all ? 0 : r == one ? 1 : -1;
+    }
+
     private Ui() { }
 }

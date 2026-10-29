@@ -223,6 +223,7 @@ public final class TabsWindow {
     /** Puts a tab at another place in the list (drag and drop, Ctrl+Shift+PgUp/PgDn); the shown tab stays shown. */
     void move(TerminalTab t, int to) {
         var shown = selected();
+        Events.log("move", "tab", Events.tab(t), "to", to);
         moving = true;
         try {
             tabs.remove(t);

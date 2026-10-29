@@ -14,6 +14,8 @@ import com.techsenger.jeditermfx.ui.JediTermFxWidget;
 public final class TerminalTab {
 
     final StringProperty title = new SimpleStringProperty("shell"), custom = new SimpleStringProperty(), color = new SimpleStringProperty();
+    /** A short name for this tab while Tabs runs, for the control channel and the event log (not kept across restarts). */
+    final String id = Long.toString(java.util.concurrent.ThreadLocalRandom.current().nextLong(46656, 1679616), 36);
     final BooleanProperty asleep = new SimpleBooleanProperty();
     final StackPane host = new StackPane();
     final Options o;

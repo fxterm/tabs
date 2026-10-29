@@ -13,7 +13,9 @@ import javafx.scene.layout.*;
 public final class TabCell extends ListCell<TerminalTab> {
 
     final Sidebar side;
-    /** The corner under the number: a sleeping tab's grey moon, or a live tab's RAM. */
+    /** The corner under the number: a sleeping tab's moon (the icon in grey), or a live tab's RAM. */
+    static final javafx.scene.image.Image SLEEPING = new javafx.scene.image.Image(TabCell.class.getResourceAsStream("asleep.png"));
+    final javafx.scene.image.ImageView moon = new javafx.scene.image.ImageView(SLEEPING);
     final Label number = new Label(), name = new Label(), sub = new Label(), path = new Label(), state = new Label();
     final Button sleepNow = new Button("Zz");
     /** On a sleeping tab, hovering its grey moon shows this yellow sun: one click wakes the tab. */
@@ -42,6 +44,9 @@ public final class TabCell extends ListCell<TerminalTab> {
         text.setMinWidth(0);
         HBox.setHgrow(text, Priority.ALWAYS);
         // number on top, sleep mark or RAM under it, in a narrow column
+        moon.setFitWidth(20);
+        moon.setFitHeight(20);
+        moon.setSmooth(true);
         // the moon or the RAM sits centred in the space left under the number
         // hovering the RAM swaps it for a Zz button: one click hibernates the tab
         sleepNow.setFocusTraversable(false);
@@ -256,10 +261,10 @@ public final class TabCell extends ListCell<TerminalTab> {
             state.setText(t.ramBytes > 0 ? shortMb(t.ramBytes) : "");
             state.setStyle(t.ramBytes > 0 ? ramBadge(t) : "");
         } else {
-            // a grey moon; the badge's fill goes too, or a reused row shows it behind the moon
-            state.setStyle("-fx-text-fill: #7d8189; -fx-font-size: 17; -fx-font-family: 'Segoe UI Symbol';");
-            state.setGraphic(null);
-            state.setText("☾");
+            state.setText(null);
+            // the badge's fill goes too, or a reused row shows it behind the moon
+            state.setStyle("");
+            state.setGraphic(moon);
         }
         var ram = t.live() ? Mem.mb(t.ramBytes) : "asleep";
         tip.setText(t.shown() + "\n" + where + "\n" + (t.live() ? "RAM: " + ram + " (shell and the program it runs)" : "Asleep: no process; Enter restores it"));

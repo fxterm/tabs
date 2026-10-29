@@ -55,15 +55,20 @@ public final class TabCell extends ListCell<TerminalTab> {
         mark.setOnMouseExited(e -> { sleepNow.setVisible(false); state.setVisible(true); });
         VBox.setVgrow(mark, Priority.ALWAYS);
         // the project's icon (from proj's prp/proj.json) beside the number
-        project.setFitWidth(16);
-        project.setFitHeight(16);
+        // larger than the number, and centred in the room left beside it rather than pressed against it
+        project.setFitWidth(22);
+        project.setFitHeight(22);
         project.setSmooth(true);
-        var top = new HBox(4, number, project);
-        top.setAlignment(Pos.CENTER_LEFT);
+        var iconBox = new StackPane(project);
+        iconBox.setAlignment(Pos.CENTER);
+        iconBox.setMinHeight(26);
+        HBox.setHgrow(iconBox, Priority.ALWAYS);
+        var top = new HBox(0, number, iconBox);
+        top.setAlignment(Pos.TOP_LEFT);
         var corner = new VBox(0, top, mark);
         corner.setFillWidth(true);
-        corner.setMinWidth(40);
-        corner.setPrefWidth(40);
+        corner.setMinWidth(48);
+        corner.setPrefWidth(48);
         state.setMinWidth(Region.USE_PREF_SIZE);
         corner.setAlignment(Pos.TOP_LEFT);
         row = new HBox(4, corner, text, close);

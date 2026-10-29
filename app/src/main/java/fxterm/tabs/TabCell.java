@@ -146,6 +146,8 @@ public final class TabCell extends ListCell<TerminalTab> {
         setOnDragDone(e -> {
             var tab = dragged;
             dragged = null;
+            // every row of every window drops its line, wherever the drag ended
+            side.app.app.windows.forEach(w -> w.list.lookupAll(".list-cell").forEach(c -> { if (c instanceof Region r) r.setBorder(null); }));
             if (e.getTransferMode() != null || tab == null || tab.owner == null || tab.separator) return;
             Events.log("drag-out", "tab", Events.tab(tab));
             var at = TitleBar.cursor();
@@ -178,6 +180,8 @@ public final class TabCell extends ListCell<TerminalTab> {
     protected void updateItem(TerminalTab t, boolean empty) {
         super.updateItem(t, empty);
         setText(null);
+        // the drop line belongs to a drag in progress; a row reused for another tab must not carry it along
+        if (dragged == null) setBorder(null);
         if (empty || t == null) {
             setGraphic(null);
             setTooltip(null);

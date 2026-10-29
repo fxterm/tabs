@@ -16,8 +16,20 @@ public final class TabsApp extends Application {
     SessionStore store;
     History history;
     RamWatch ram;
+    /** Read aloud for the selection of a terminal; its controls show in the footer of the window it is reading in. */
+    final ReadTerminal reader = new ReadTerminal(msg -> Platform.runLater(() -> message(msg)));
+    UpdateCheck updates;
     /** Where a tab from another launch (Tabby's open / run) goes. */
     TabsWindow lastFocused;
+
+    /** A short notice, for what a button asked for and could not do. */
+    void message(String text) {
+        var owner = windows.contains(lastFocused) ? lastFocused : windows.isEmpty() ? null : windows.getFirst();
+        var a = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION, text);
+        if (owner != null) a.initOwner(owner.stage);
+        a.setHeaderText(null);
+        a.show();
+    }
 
     @Override
     public void start(Stage first) throws Exception {
@@ -54,6 +66,11 @@ public final class TabsApp extends Application {
         new Hibernator(this::hidden, options, s -> history.record(s, "hibernated")).start();
         ram = new RamWatch(this::allTabs, this::refreshAll);
         ram.start();
+        reader.changed = () -> windows.forEach(w -> w.footer.reading(reader));
+        // a test run (off-screen, or its own state file) does not go to the network unless asked to
+        updates = new UpdateCheck(() -> windows.forEach(w -> w.footer.updateStatus(updates)));
+        windows.forEach(w -> w.footer.updateStatus(updates));
+        if (!options.offscreen && options.state == null || options.checkUpdates) updates.start();
         TestHooks.start(main, main.scene, options);
     }
 

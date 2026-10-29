@@ -38,12 +38,63 @@ public final class TestHooks {
                 System.err.println("test-select: reply file for " + app.selected().where() + " -> " + Quote.replyFile(app.selected().where(), null));
                 if (app.selectionBar != null) Snapshot.write(app.selectionBar.getScene(), o.testSelect + "-popup.png");
                 Snapshot.write(scene, o.testSelect + "-selected.png");
+                // read aloud, without a voice: the words are stepped through by hand and each is lit in the terminal
+                if (o.testRead) {
+                    ReadTerminal.silent = true;
+                    var reader = app.app.reader;
+                    reader.start(app.selected(), b, sel);
+                    var s = reader.spoken;
+                    System.err.println("test-read: reading " + reader.reading() + ", bar shown " + app.footer.readBar.isVisible() + ", selection after " + panel.getSelection());
+                    System.err.println("test-read: text [" + (s == null ? null : s.text().replace("\n", "|")) + "]");
+                    if (s != null) Thread.ofPlatform().daemon().start(() -> {
+                        var m = Pattern.compile("\\S+").matcher(s.text());
+                        for (var n = 1; m.find() && n <= 9; n++) {
+                            var from = m.start();
+                            var to = m.end();
+                            Platform.runLater(() -> reader.speaking(from, to, true));
+                            Bench.sleep(450);
+                            var word = s.text().substring(from, to);
+                            if (n == 3 || n == 9) {
+                                var shot = o.testSelect + "-reading" + n + ".png";
+                                Platform.runLater(() -> {
+                                    System.err.println("test-read: word " + word + " at row " + s.rows()[from] + " col " + s.cols()[from]);
+                                    Snapshot.write(scene, shot);
+                                });
+                                Bench.sleep(300);
+                            }
+                        }
+                        Platform.runLater(() -> { reader.stop(); System.err.println("test-read: stopped, bar shown " + app.footer.readBar.isVisible()); });
+                    });
+                }
             });
             Bench.sleep(1500);
             Platform.runLater(() -> {
                 var panel = app.selected().widget.getTerminalPanel();
                 Event.fireEvent(scene.getFocusOwner(), mouse(MouseEvent.MOUSE_CLICKED, 10, 10, MouseButton.SECONDARY, 1));
                 System.err.println("test-select: after right-click, selection " + panel.getSelection() + ", popup " + (app.selectionBar != null));
+            });
+        });
+        // what closing asks about: a bare shell (nothing), a shell running a program (ping), a sleeping tab (nothing); then the
+        // hover on a sleeping tab's moon, and the update answer
+        if (o.testRunning) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(2500);
+            Platform.runLater(() -> {
+                app.wake(app.tabs.get(1));
+                try { app.tabs.get(1).connector.write("ping -n 40 127.0.0.1\r"); } catch (IOException e) { System.err.println("test-running: " + e); }
+            });
+            Bench.sleep(3500);
+            Platform.runLater(() -> {
+                for (var t : app.tabs) System.err.println("test-running: " + t.shown() + " live " + t.live() + " -> " + TabsWindow.running(t));
+                // the hover on a sleeping tab's moon: a yellow sun
+                for (var n : app.list.lookupAll(".list-cell")) {
+                    if (n instanceof TabCell c && c.getItem() == app.tabs.get(2)) {
+                        Event.fireEvent(c.wakeNow.getParent(), new MouseEvent(MouseEvent.MOUSE_ENTERED, 5, 5, 5, 5, MouseButton.NONE, 0,
+                                false, false, false, false, false, false, false, false, false, false, null));
+                        System.err.println("test-running: sun shown " + c.wakeNow.isVisible() + ", moon hidden " + !c.state.isVisible());
+                    }
+                }
+                Platform.runLater(() -> Snapshot.write(scene, o.snapshot != null ? o.snapshot : "running.png"));
+                System.err.println("test-running: update status [" + app.app.updates.status() + "] available " + app.app.updates.available() + " latest " + app.app.updates.latest + " error " + app.app.updates.error);
             });
         });
         // a scripted demo, for screenshots: one step per line of the file, tabs counted from 1 as listed

@@ -37,7 +37,15 @@ public final class Ui {
                 + ".text-field { -fx-background-color: " + shade(t.background, 12) + "; -fx-text-fill: " + t.foreground + ";"
                 + " -fx-prompt-text-fill: " + shade(t.foreground, -70) + "; -fx-background-radius: 4; }\n"
                 + ".text-field:focused { -fx-background-color: " + t.colors.get(4) + ", " + shade(t.background, 12) + "; -fx-background-insets: 0, 1; }\n"
-                + ".date-picker > .arrow-button { -fx-background-color: " + shade(t.background, 18) + "; }\n";
+                + ".date-picker > .arrow-button { -fx-background-color: " + shade(t.background, 18) + "; }\n"
+                // the quiet buttons of the footer, the compose box and the selection bar: a shade above the bar, a hairline edge
+                + ".tabs-button { -fx-background-color: " + shade(t.background, 14) + "; -fx-text-fill: " + mix(t.foreground, t.background, 0.15) + ";"
+                + " -fx-font-size: 11; -fx-padding: 2 9 2 9; -fx-background-radius: 5; -fx-border-color: " + shade(t.background, 30)
+                + "; -fx-border-radius: 5; -fx-border-width: 1; -fx-cursor: hand; }\n"
+                + ".tabs-button:hover { -fx-background-color: " + shade(t.background, 28) + "; }\n"
+                + ".tabs-button:pressed { -fx-background-color: " + shade(t.background, 38) + "; }\n"
+                + ".tabs-button:disabled { -fx-opacity: 0.4; }\n"
+                + ".tabs-button.small { -fx-font-size: 10; -fx-padding: 1 6 1 6; -fx-background-radius: 4; -fx-border-radius: 4; }\n";
         return "data:text/css;base64," + java.util.Base64.getEncoder().encodeToString(css.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
@@ -168,6 +176,27 @@ public final class Ui {
         });
         var r = a.showAndWait().orElse(ButtonType.CANCEL);
         return r == keep ? 0 : r == all ? 1 : -1;
+    }
+
+    /** Closing a tab that has something running in it: 0 close it, 1 hibernate it instead (it stays in the list, asleep,
+     *  and wakes as it was), -1 cancel. F2 close, F3 hibernate, Esc cancel; keys are ignored for the first moments, so
+     *  a keystroke meant for the program cannot answer it. */
+    static int closeTab(Stage owner, String label, String running) {
+        var close = new ButtonType("Close (F2)", ButtonBar.ButtonData.OK_DONE);
+        var sleep = new ButtonType("Hibernate (F3)", ButtonBar.ButtonData.OTHER);
+        var a = new Alert(Alert.AlertType.CONFIRMATION, running + "\n\nClose: the program ends (the tab stays in History)."
+                + "\nHibernate: the tab goes to sleep and wakes where it was.\n\nEsc: cancel", close, sleep, ButtonType.CANCEL);
+        a.initOwner(owner);
+        a.setHeaderText("Close \"" + label + "\"?");
+        var armedAt = System.currentTimeMillis() + 800;
+        a.getDialogPane().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (System.currentTimeMillis() < armedAt) { e.consume(); return; }
+            if (e.getCode() == KeyCode.F2) { a.setResult(close); a.close(); e.consume(); }
+            else if (e.getCode() == KeyCode.F3) { a.setResult(sleep); a.close(); e.consume(); }
+            else if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) e.consume();
+        });
+        var r = a.showAndWait().orElse(ButtonType.CANCEL);
+        return r == close ? 0 : r == sleep ? 1 : -1;
     }
 
     private Ui() { }

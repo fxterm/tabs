@@ -36,11 +36,11 @@ public final class Sidebar {
         list.setCellFactory(v -> new TabCell(this));
         list.setFocusTraversable(false);
         list.setStyle(Ui.sidebar(theme));
-        // tabs and separators have their own heights; the list is as tall as its rows, so + sits under the last
-        list.prefHeightProperty().bind(Bindings.createDoubleBinding(
-                () -> tabs.stream().mapToDouble(t -> t.separator ? SEPARATOR_ROW : ROW).sum() + 6, tabs));
-        list.setMinHeight(ROW);
+        // tabs and separators have their own heights, and a folded group's tabs have none; the list is as tall as the
+        // rows it shows, so + sits under the last. fit() is called when the rows or the folds change (TabsWindow.refresh).
+        list.setMinHeight(0);
         list.setMaxHeight(Region.USE_PREF_SIZE);
+        tabs.addListener((javafx.collections.ListChangeListener<TerminalTab>) c -> fit());
         var plus = new Button("+");
         plus.setFocusTraversable(false);
         plus.setStyle(Ui.plus(theme));
@@ -69,6 +69,13 @@ public final class Sidebar {
         node = new VBox(list, addButtons);
         node.setStyle(Ui.sidebar(theme));
         node.setMinWidth(120);
+        fit();
+    }
+
+    /** The list as tall as the rows in sight. */
+    void fit() {
+        var height = app.tabs.stream().mapToDouble(t -> t.separator ? SEPARATOR_ROW : app.folded(t) ? 0 : ROW).sum() + 6;
+        if (list.getPrefHeight() != height) list.setPrefHeight(height);
     }
 
     ContextMenu menu(TerminalTab t) {

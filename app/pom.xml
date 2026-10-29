@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.github.fxterm</groupId>
         <artifactId>fxterm-tabs-parent</artifactId>
-        <version>0.1.1</version>
+        <version>0.1.2</version>
     </parent>
     <artifactId>fxterm-tabs</artifactId>
 
@@ -27,6 +27,11 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource><directory>src/main/resources</directory></resource>
+            <!-- version.txt only: the version Tabs was built as, for the footer's update check -->
+            <resource><directory>src/main/filtered</directory><filtering>true</filtering></resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId><version>3.6.0</version>

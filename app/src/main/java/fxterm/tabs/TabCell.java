@@ -13,10 +13,13 @@ import javafx.scene.layout.*;
 public final class TabCell extends ListCell<TerminalTab> {
 
     final Sidebar side;
-    /** The corner under the number: a sleeping tab's moon, or a live tab's RAM. Drawn at twice its shown size. */
-    static final javafx.scene.image.Image SLEEPING = new javafx.scene.image.Image(TabCell.class.getResourceAsStream("asleep.png"));
+    /** The corner under the number: a sleeping tab's grey moon, or a live tab's RAM. */
     final Label number = new Label(), name = new Label(), sub = new Label(), path = new Label(), state = new Label();
     final Button sleepNow = new Button("Zz");
+    /** On a sleeping tab, hovering its grey moon shows this yellow sun: one click wakes the tab. */
+    final Button wakeNow = new Button("☀");
+    HBox topBox;
+    VBox textBox;
     final Button close = new Button("×");
     final HBox row;
     final Tooltip tip = new Tooltip();
@@ -33,14 +36,12 @@ public final class TabCell extends ListCell<TerminalTab> {
         ramStyle = "-fx-text-fill: #ffffff; -fx-font-size: 10.5; -fx-font-weight: bold;";
         close.setFocusTraversable(false);
         close.visibleProperty().bind(hoverProperty());
-        close.setOnAction(e -> { if (getItem() != null) side.app.close(getItem()); });
+        close.setOnAction(e -> { if (getItem() != null) side.app.requestClose(getItem()); });
         var text = new VBox(-1, name, sub, path);
+        textBox = text;
         text.setMinWidth(0);
         HBox.setHgrow(text, Priority.ALWAYS);
         // number on top, sleep mark or RAM under it, in a narrow column
-        moon.setFitWidth(20);
-        moon.setFitHeight(20);
-        moon.setSmooth(true);
         // the moon or the RAM sits centred in the space left under the number
         // hovering the RAM swaps it for a Zz button: one click hibernates the tab
         sleepNow.setFocusTraversable(false);
@@ -49,10 +50,23 @@ public final class TabCell extends ListCell<TerminalTab> {
                 + " -fx-font-weight: bold; -fx-padding: 0 5 0 5; -fx-background-radius: 3; -fx-cursor: hand;");
         sleepNow.setTooltip(new Tooltip("Hibernate this tab"));
         sleepNow.setOnAction(e -> { if (getItem() != null && getItem().live()) side.app.hibernate(getItem()); });
-        var mark = new StackPane(state, sleepNow);
+        wakeNow.setFocusTraversable(false);
+        wakeNow.setVisible(false);
+        wakeNow.setStyle("-fx-background-color: transparent; -fx-text-fill: #f2c94c; -fx-font-size: 18; -fx-font-family: 'Segoe UI Symbol';"
+                + " -fx-padding: 0 4 0 4; -fx-cursor: hand; -fx-effect: dropshadow(gaussian, rgba(242,201,76,0.55), 8, 0.3, 0, 0);");
+        wakeNow.setTooltip(new Tooltip("Wake this tab"));
+        wakeNow.setOnAction(e -> { if (getItem() != null && !getItem().live()) getItem().wake.run(); });
+        var mark = new StackPane(state, sleepNow, wakeNow);
         mark.setAlignment(Pos.CENTER);
-        mark.setOnMouseEntered(e -> { var live = getItem() != null && getItem().live(); sleepNow.setVisible(live); state.setVisible(!live); });
-        mark.setOnMouseExited(e -> { sleepNow.setVisible(false); state.setVisible(true); });
+        // a live tab's RAM becomes Zz on hover, a sleeping tab's grey moon becomes a yellow sun
+        mark.setOnMouseEntered(e -> {
+            var tab = getItem();
+            if (tab == null || tab.separator) return;
+            sleepNow.setVisible(tab.live());
+            wakeNow.setVisible(!tab.live());
+            state.setVisible(false);
+        });
+        mark.setOnMouseExited(e -> { sleepNow.setVisible(false); wakeNow.setVisible(false); state.setVisible(true); });
         VBox.setVgrow(mark, Priority.ALWAYS);
         // the project's icon (from proj's prp/proj.json) beside the number
         // larger than the number, and centred in the room left beside it rather than pressed against it
@@ -68,6 +82,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         number.setPrefWidth(18);
         number.setAlignment(Pos.CENTER_RIGHT);
         var top = new HBox(0, number, iconBox);
+        topBox = top;
         // the number on the icon's middle line, not hanging at its top
         top.setAlignment(Pos.CENTER_LEFT);
         top.setMinHeight(26);
@@ -241,10 +256,10 @@ public final class TabCell extends ListCell<TerminalTab> {
             state.setText(t.ramBytes > 0 ? shortMb(t.ramBytes) : "");
             state.setStyle(t.ramBytes > 0 ? ramBadge(t) : "");
         } else {
-            state.setText(null);
-            // the badge's fill goes too, or a reused row shows it behind the moon
-            state.setStyle("");
-            state.setGraphic(moon);
+            // a grey moon; the badge's fill goes too, or a reused row shows it behind the moon
+            state.setStyle("-fx-text-fill: #7d8189; -fx-font-size: 17; -fx-font-family: 'Segoe UI Symbol';");
+            state.setGraphic(null);
+            state.setText("☾");
         }
         var ram = t.live() ? Mem.mb(t.ramBytes) : "asleep";
         tip.setText(t.shown() + "\n" + where + "\n" + (t.live() ? "RAM: " + ram + " (shell and the program it runs)" : "Asleep: no process; Enter restores it"));
@@ -258,6 +273,11 @@ public final class TabCell extends ListCell<TerminalTab> {
     void paint(boolean selected, String colour) {
         setStyle(Ui.cell(side.theme, selected, colour));
         textOn(selected, colour);
+        // a tab asleep is dulled (its text, number and icon) so the live ones stand out; the active one a little less
+        var asleep = getItem() != null && !getItem().separator && !getItem().live();
+        var dull = asleep ? (selected ? 0.75 : 0.45) : 1.0;
+        if (textBox != null) textBox.setOpacity(dull);
+        if (topBox != null) topBox.setOpacity(dull);
     }
 
     /** On the active tab the text is white or black, whichever stands out more from its fill, and the folder and
@@ -272,7 +292,6 @@ public final class TabCell extends ListCell<TerminalTab> {
     }
 
     final String ramStyle;
-    final javafx.scene.image.ImageView moon = new javafx.scene.image.ImageView(SLEEPING);
 
     /** The RAM on a coloured pill: blue under 100 MB, yellow from 100, orange from 200; the tab using the most, once
      *  past 100 MB, red with a glow, so the heavy one stands out. */

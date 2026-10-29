@@ -216,9 +216,8 @@ public final class TerminalTab {
         // a bar saying what waking runs, with the buttons; under it the tab as it looked, dimmed, selectable to copy
         var fg = "-fx-text-fill: " + theme.foreground + ";";
         var mono = " -fx-font-family: '" + o.family + "';";
-        var moon = new javafx.scene.image.ImageView(TabCell.SLEEPING);
-        moon.setFitWidth(22);
-        moon.setFitHeight(22);
+        var moon = new Label("☾");
+        moon.setStyle("-fx-text-fill: #7d8189; -fx-font-size: 24; -fx-font-family: 'Segoe UI Symbol';");
         var head = new Label("Asleep" + (s.claude() ? ": claude session " + s.claudeSessionId : ""));
         head.setStyle(fg + " -fx-font-size: 14; -fx-font-weight: bold;");
         var what = new Label(s.commandLine() + "   in   " + (s.cwd != null ? s.cwd : System.getProperty("user.home")));

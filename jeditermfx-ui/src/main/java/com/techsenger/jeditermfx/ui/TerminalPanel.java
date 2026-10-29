@@ -1083,6 +1083,15 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
                                     drawCharacters(interval.getFirst(), row, selectionStyle, selectionChars);
                                 }
                             }
+                            // fxterm-tabs fork: the word being read aloud
+                            var spoken = readingRanges;
+                            if (spoken != null) {
+                                for (int[] r : spoken) {
+                                    if (r[0] != row + swingClientScrollOrigin) continue;
+                                    int from = Math.max(r[1], x), to = Math.min(r[2], x + characters.length());
+                                    if (from < to) drawCharacters(from, row, getReadingStyle(style), characters.subBuffer(from - x, to - from));
+                                }
+                            }
                         }
 
                         @Override
@@ -1184,6 +1193,35 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
             myCachedFoundPatternColor = foundPatternColor;
         }
         return foundPatternColor;
+    }
+
+    /** fxterm-tabs fork: the cells being read aloud, as {buffer row, first column, end column} (row counted as the
+     *  buffer does, negative in the scrollback); null for none. The selection keeps its own colour. */
+    private volatile int[][] readingRanges;
+
+    private TextStyle readingStyle;
+
+    public void setReading(int[][] ranges) {
+        readingRanges = ranges;
+        repaint();
+    }
+
+    /** Scrolls so that this buffer row is on the screen (about a third of the way down when it was not). */
+    public void scrollToShow(int row) {
+        if (row >= swingClientScrollOrigin && row < swingClientScrollOrigin + myTermSize.getRows() - 1) return;
+        var to = row - myTermSize.getRows() / 3;
+        scrollBar.setValue(Math.clamp(to, scrollBar.getMin(), scrollBar.getMax()));
+    }
+
+    private TextStyle getReadingStyle(@NotNull TextStyle style) {
+        if (readingStyle == null) {
+            readingStyle = new TextStyle(new com.techsenger.jeditermfx.core.TerminalColor(255, 214, 90),
+                    new com.techsenger.jeditermfx.core.TerminalColor(20, 20, 20));
+        }
+        var builder = style.toBuilder();
+        builder.setBackground(readingStyle.getBackground());
+        builder.setForeground(readingStyle.getForeground());
+        return builder.build();
     }
 
     @NotNull

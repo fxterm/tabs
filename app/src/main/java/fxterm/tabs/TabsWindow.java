@@ -150,7 +150,7 @@ public final class TabsWindow {
         var code = e.getCode();
         if (ctrlShift && code == KeyCode.T) add();
         else if (ctrlShift && code == KeyCode.N) app.newWindow(null, Double.NaN, Double.NaN, this);
-        else if (ctrlShift && code == KeyCode.W) close(selected());
+        else if (ctrlShift && code == KeyCode.W) requestClose(selected());
         else if (ctrlShift && code == KeyCode.E) toggleCompose();
         else if (ctrlShift && code == KeyCode.H) { if (historyShown()) hideHistory(); else showHistory(); }
         else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
@@ -214,6 +214,8 @@ public final class TabsWindow {
      *  (see wake), so a restored session starts only for a tab the user actually wants back. */
     void show(TerminalTab t) {
         if (t == null || moving) return;
+        // the words being read are lit in one tab's terminal: choosing another tab ends the reading
+        if (app.reader.tab != null && app.reader.tab != t) app.reader.stop();
         // a tab chosen in a folded group (by its number, from another tool) opens its group
         if (folded(t)) {
             headOf(t).collapsed = false;
@@ -299,22 +301,28 @@ public final class TabsWindow {
             Clipboard.getSystemClipboard().setContent(c);
             done(panel);
         });
-        var here = Footer.button("Quote & reply", "#4a4a4a", "Put it in the compose box as a quote, to answer point by point with >>", () -> {
+        var read = Footer.button("Read aloud", theme.colors.get(3), "Read the selection aloud, lighting each word in the terminal as it is said", () -> {
+            app.reader.start(t, buffer, sel);
+            done(panel);
+        });
+        var here = Footer.button("Quote & reply", null, "Put it in the compose box as a quote, to answer point by point with >>", () -> {
             var md = Quote.markdown(buffer, sel) + "\n\n";
             if (!bottom.getChildren().contains(composer)) toggleCompose();
             composer.insert(md);
             done(panel);
             Platform.runLater(composer::focusEditor);
         });
-        var outside = Footer.button("Quote in notepadfx", "#4a4a4a", "Write it to a reply file (beside the tab's PRP, or a temp file) and open it in notepadfx", () -> {
+        var outside = Footer.button("Quote in notepadfx", null, "Write it to a reply file (beside the tab's PRP, or a temp file) and open it in notepadfx", () -> {
             var md = Quote.markdown(buffer, sel) + "\n\n";
             done(panel);
             composer.editOutside(t, md);
         });
-        var row = new HBox(6, copy, here, outside);
+        var row = new HBox(6, copy, read, here, outside);
         row.setPadding(new javafx.geometry.Insets(5));
-        row.setStyle("-fx-background-color: " + Ui.shade(theme.background, 14) + "; -fx-background-radius: 6;"
-                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 8, 0.2, 0, 2);");
+        // a popup is a scene of its own: it needs the button rules too
+        row.getStylesheets().add(Ui.stylesheet(theme));
+        row.setStyle("-fx-background-color: " + Ui.shade(theme.background, -6) + "; -fx-background-radius: 6; -fx-border-color: "
+                + Ui.shade(theme.background, 26) + "; -fx-border-radius: 6; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 8, 0.2, 0, 2);");
         selectionBar = new javafx.stage.Popup();
         selectionBar.getContent().add(row);
         selectionBar.setAutoHide(true);
@@ -385,6 +393,7 @@ public final class TabsWindow {
             var saved = t.snapshot(ClaudeProbe.commandLines());
             Platform.runLater(() -> {
                 if (saved == null || !t.live()) return;
+                if (app.reader.tab == t) app.reader.stop();
                 app.history.record(saved, "hibernated");
                 t.sleep(saved);
                 if (t.owner != null && t == t.owner.selected()) t.owner.show(t);
@@ -393,9 +402,54 @@ public final class TabsWindow {
         });
     }
 
+    /** The user closing one tab (its x, Ctrl+Shift+W, the menu). A sleeping tab, or a shell with nothing running in
+     *  it, just closes; when claude or any other program is running in it, it asks: close, hibernate or cancel. */
+    void requestClose(TerminalTab t) {
+        if (t == null) return;
+        var running = running(t);
+        if (running == null) {
+            close(t);
+            return;
+        }
+        var choice = Ui.closeTab(stage, t.shown(), running);
+        Events.log("close-tab", "tab", Events.tab(t), "choice", choice == 0 ? "close" : choice == 1 ? "hibernate" : "cancel");
+        if (choice == 0) close(t);
+        else if (choice == 1) hibernate(t);
+    }
+
+    static final Set<String> SHELLS = Set.of("cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe", "zsh.exe", "sh.exe", "wsl.exe"),
+            HELPERS = Set.of("conhost.exe", "openconsole.exe", "winpty-agent.exe");
+
+    /** What is running in a live tab beyond its own shell, as a sentence for the close question; null for a bare shell
+     *  (or a tab asleep), which is closed without asking. */
+    static String running(TerminalTab t) {
+        if (t.separator || !t.live()) return null;
+        var pid = t.connector.process.pid();
+        var claude = ClaudeProbe.of(pid);
+        if (claude.isPresent()) {
+            var c = claude.get();
+            return "Claude Code is running here" + (c.name != null ? " (" + c.name + ")" : "")
+                    + (c.idle() ? ", waiting for you." : ", in the middle of a reply.");
+        }
+        var root = ProcessHandle.of(pid).orElse(null);
+        if (root == null) return null;
+        // the shell is the process itself, or the first shell below a console helper
+        var shell = SHELLS.contains(name(root)) ? root : root.children().filter(p -> SHELLS.contains(name(p))).findFirst().orElse(root);
+        var busy = shell.descendants().map(TabsWindow::name).filter(n -> !HELPERS.contains(n)).distinct().limit(3).toList();
+        return busy.isEmpty() ? null : "Still running here: " + String.join(", ", busy) + ".";
+    }
+
+    static String name(ProcessHandle p) {
+        return p.info().command().map(c -> Path.of(c).getFileName().toString().toLowerCase(Locale.ROOT)).orElse("a program");
+    }
+
     /** Closes the given tabs (close, close above/below/others), asking first if any of them has claude mid-reply. */
     void closeTabs(List<TerminalTab> which) {
         if (which.isEmpty()) return;
+        if (which.size() == 1 && !which.getFirst().separator) {
+            requestClose(which.getFirst());
+            return;
+        }
         if (!TabsApp.okToEnd(stage, which, "Closing ends them mid-reply (the conversation stays on disk and can be resumed).")) return;
         which.forEach(this::close);
     }
@@ -430,6 +484,8 @@ public final class TabsWindow {
     void refresh() {
         var t = selected();
         stage.setTitle(t == null ? "Tabs" : "Tabs - " + t.shown() + " (" + t.where() + ")");
+        // the list is as tall as the rows it shows (a folded group's tabs take none), so + sits right under the last
+        sidebar.fit();
         list.refresh();
         // the terminal's border and the divider take the active tab's colour, so tab and terminal read as one
         var frame = Ui.frame(theme, t == null ? null : t.color.get());
@@ -569,6 +625,7 @@ public final class TabsWindow {
         var wasSelected = t == selected();
         tabs.remove(t);
         if (end) {
+            if (app.reader.tab == t) app.reader.stop();
             app.history.record(t.quickSave(), "closed");
             t.close();
         } else {

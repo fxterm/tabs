@@ -16,7 +16,7 @@ public final class Options {
     int tabs = 1, scrollback = 5000, fps = 30, bench = 0, hibernateFreeMb = 2048, hibernateIdleMin = 30;
     long benchWait = 20_000, benchGap = 150, benchPromptWait = 3_000, snapshotWait = 8_000, quitAfter = 0;
     double font = 0;
-    boolean offscreen, benchExit, restore = true, wakeAll, testKeys, testWake, testWakeAll, testMenu, testCompose, testWindows, testSeparators, testOrder, testEsc, serve;
+    boolean offscreen, benchExit, restore = true, wakeAll, testKeys, testWake, testWakeAll, testMenu, testCompose, testWindows, testSeparators, testOrder, testEsc, serve, checkUpdates, testRead, testRunning;
     String shell = "cmd.exe", family = "Consolas", theme = "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd, testLook, testHistory, testFont, testSelect, demo, tabFill = "strip";
 
     static Options parse(List<String> args) {
@@ -64,6 +64,9 @@ public final class Options {
                 case "--test-order" -> o.testOrder = Boolean.parseBoolean(v);
                 case "--test-esc" -> o.testEsc = Boolean.parseBoolean(v);
                 case "--serve" -> o.serve = Boolean.parseBoolean(v);
+                case "--test-read" -> o.testRead = Boolean.parseBoolean(v);
+                case "--test-running" -> o.testRunning = Boolean.parseBoolean(v);
+                case "--check-updates" -> o.checkUpdates = Boolean.parseBoolean(v);
                 case "--quit-after" -> o.quitAfter = Long.parseLong(v);
                 case "--snapshot-wait" -> o.snapshotWait = Long.parseLong(v);
                 default -> throw new IllegalArgumentException("unknown option " + args.get(i));

@@ -31,7 +31,9 @@ When Tabs closes it saves every tab. When it starts again, every tab comes back 
 - If a shell had been running Claude Code before Tabs closed, F3 resumes that last conversation instead.
 - "Restore all" in the footer wakes every tab in the window.
 
-To put a tab to sleep yourself, hover its RAM figure and click Zz, or choose Hibernate in its menu. When memory runs short, hidden Claude tabs that have been idle are put to sleep for you.
+A sleeping tab is dulled in the list and carries a grey moon; hover the moon and it turns into a yellow sun, and one click wakes the tab. To put a tab to sleep yourself, hover its RAM figure and click Zz, or choose Hibernate in its menu. When memory runs short, hidden Claude tabs that have been idle are put to sleep for you.
+
+Closing a tab (its x, Ctrl+Shift+W, or its menu) closes a bare shell at once. When Claude Code or any other program is running in it, Tabs asks first: **Close** (F2), **Hibernate** (F3) or cancel (Esc).
 
 ### RAM at a glance
 
@@ -51,7 +53,11 @@ Every tab that closes or goes to sleep is kept, with its text, and so is every t
 
 ![The compose box under the terminal, with a two-line request for Claude](docs/screenshots/compose.png)
 
-Ctrl+Shift+E opens an editor under the terminal for writing what a terminal makes awkward, such as a request of several lines for an AI agent. Ctrl+Enter sends it to the tab as one paste followed by Enter; "Type only" sends it without Enter.
+Ctrl+Shift+E opens an editor under the terminal for writing what a terminal makes awkward, such as a request of several lines for an AI agent. It takes the terminal's own colours, and has an editor's tools (bold, italic, headings, lists) and a writer bar for dictation (F3) and spelling. Ctrl+Enter sends it to the tab as one paste followed by Enter; "Type only" sends it without Enter.
+
+### Select, read aloud, quote
+
+Select text in the terminal and a small bar appears beside it: **Copy**, **Read aloud**, **Quote & reply** (into the compose box) and **Quote in notepadfx**. Read aloud speaks the selection and lights each word in the terminal as it is said, scrolling to keep it in sight; while it reads, the footer shows Pause, Stop, speed and Voice. Claude's own markers and the box-drawing characters are not read.
 
 ### Font size
 
@@ -59,7 +65,8 @@ Ctrl+= makes the text bigger, Ctrl+- smaller, and Ctrl+0 goes back to the defaul
 
 ### Also
 
-- The right mouse button copies the selection, or pastes when nothing is selected.
+- The right mouse button pastes (Ctrl+right-click keeps the menu).
+- The footer tells whether a newer Tabs is released: it checks when Tabs starts and every 24 hours, and the small button beside the status checks now. Nothing is downloaded by itself; click the status for the release page, or run `fxterm-tabs.exe -Xjr:update` from a release exe.
 - The footer shows the tab's folder; click it to copy. Copy text copies the whole tab, Find (Ctrl+F) searches it.
 - A tab's menu: copy folder path, copy command (the line that brings the tab back in any cmd window), rename, colour, duplicate, hibernate or restore, move to window, insert separator above, close, close tabs above / below / others.
 - Colours and font size are read from an existing Tabby configuration, so moving over looks the same.

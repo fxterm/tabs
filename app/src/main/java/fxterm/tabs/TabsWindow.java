@@ -517,8 +517,17 @@ public final class TabsWindow {
         var block = group(head);
         var from = tabs.indexOf(head);
         if (at >= from && at <= from + block.size()) return;
-        // land on a group boundary: before a separator, or at the end
-        while (at < tabs.size() && at > 0 && !tabs.get(at).separator) at++;
+        // inside another group: to its nearer edge, before its label or after its last tab, as a browser does
+        if (at > 0 && at < tabs.size() && !tabs.get(at).separator) {
+            var start = at;
+            while (start > 0 && !tabs.get(start).separator) start--;
+            if (!tabs.get(start).separator) start = 0;
+            var end = at;
+            while (end < tabs.size() && !tabs.get(end).separator) end++;
+            // the tabs above every label are not a group: a group cannot go in among them, only after them
+            at = tabs.get(start).separator && at - start <= end - at ? start : end;
+            if (at >= from && at <= from + block.size()) return;
+        }
         if (at > from) at -= block.size();
         var shown = selected();
         Events.log("move-group", "head", Events.tab(head), "size", block.size(), "to", at);

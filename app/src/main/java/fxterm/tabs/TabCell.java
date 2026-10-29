@@ -119,7 +119,11 @@ public final class TabCell extends ListCell<TerminalTab> {
         });
         // a press on a separator only starts a drag: it must not try to select the separator, whose "cannot be
         // chosen" correction redraws the list under the drag
-        addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> { if (getItem() != null && getItem().separator && e.isPrimaryButtonDown()) e.consume(); });
+        addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> {
+            // logged so a drag can be checked against the row the mouse actually went down on
+            if (getItem() != null && e.isPrimaryButtonDown()) Events.log("press", "tab", Events.tab(getItem()), "row", getIndex(), "y", Math.round(e.getY()));
+            if (getItem() != null && getItem().separator && e.isPrimaryButtonDown()) e.consume();
+        });
         setOnDragDropped(e -> {
             var tab = dragged;
             if (tab != null && e.getGestureSource() instanceof TabCell) {

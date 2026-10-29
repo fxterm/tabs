@@ -129,6 +129,11 @@ public final class TabCell extends ListCell<TerminalTab> {
                 // within this window it is a reorder (taking the tab out first shifts the rows below it up by one);
                 // from another window the tab moves here, still running
                 if (tab.owner == side.app) side.app.drop(tab, getIndex(), after);
+                else if (tab.separator) {
+                    // a group goes to the other window whole, in its order
+                    var block = tab.owner.group(tab);
+                    for (var i = 0; i < block.size(); i++) side.app.app.moveTo(block.get(i), side.app, at == Integer.MAX_VALUE ? at : at + i);
+                }
                 else side.app.app.moveTo(tab, side.app, at);
                 Events.log("dropped", "tab", Events.tab(tab));
                 e.setDropCompleted(true);

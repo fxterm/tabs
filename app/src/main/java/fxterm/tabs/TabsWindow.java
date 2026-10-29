@@ -438,8 +438,44 @@ public final class TabsWindow {
      *  dragged row's own place taken out first (rows below it move up by one). */
     void drop(TerminalTab t, int row, boolean after) {
         var at = row + (after ? 1 : 0);
+        if (t.separator) {
+            moveGroup(t, at);
+            return;
+        }
         if (tabs.indexOf(t) < at) at--;
         move(t, at);
+    }
+
+    /** A separator is the head of a group: it and the tabs under it, down to the next separator. */
+    List<TerminalTab> group(TerminalTab head) {
+        var from = tabs.indexOf(head);
+        var to = from + 1;
+        while (to < tabs.size() && !tabs.get(to).separator) to++;
+        return List.copyOf(tabs.subList(from, to));
+    }
+
+    /** Moves a whole group, as one block, to before list row `at` (counted before the move). A drop inside the group
+     *  itself changes nothing; a drop in the middle of another group puts the block after that group's tab there,
+     *  which splits it, so the block goes to the end of that group instead. */
+    void moveGroup(TerminalTab head, int at) {
+        var block = group(head);
+        var from = tabs.indexOf(head);
+        if (at >= from && at <= from + block.size()) return;
+        // land on a group boundary: before a separator, or at the end
+        while (at < tabs.size() && at > 0 && !tabs.get(at).separator) at++;
+        if (at > from) at -= block.size();
+        var shown = selected();
+        Events.log("move-group", "head", Events.tab(head), "size", block.size(), "to", at);
+        moving = true;
+        try {
+            tabs.removeAll(block);
+            tabs.addAll(Math.clamp(at, 0, tabs.size()), block);
+            list.getSelectionModel().select(shown);
+        } finally {
+            moving = false;
+        }
+        refresh();
+        focusSoon();
     }
 
     /** A new tab right after the shown one, so it lands in the same group (under the same separator). */

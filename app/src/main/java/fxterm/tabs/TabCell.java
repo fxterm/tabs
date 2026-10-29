@@ -20,6 +20,7 @@ public final class TabCell extends ListCell<TerminalTab> {
     final Button close = new Button("×");
     final HBox row;
     final Tooltip tip = new Tooltip();
+    final javafx.scene.image.ImageView project = new javafx.scene.image.ImageView();
 
     TabCell(Sidebar side) {
         this.side = side;
@@ -51,7 +52,13 @@ public final class TabCell extends ListCell<TerminalTab> {
         mark.setOnMouseEntered(e -> { var live = getItem() != null && getItem().live(); sleepNow.setVisible(live); state.setVisible(!live); });
         mark.setOnMouseExited(e -> { sleepNow.setVisible(false); state.setVisible(true); });
         VBox.setVgrow(mark, Priority.ALWAYS);
-        var corner = new VBox(0, number, mark);
+        // the project's icon (from proj's prp/proj.json) beside the number
+        project.setFitWidth(16);
+        project.setFitHeight(16);
+        project.setSmooth(true);
+        var top = new HBox(4, number, project);
+        top.setAlignment(Pos.CENTER_LEFT);
+        var corner = new VBox(0, top, mark);
         corner.setFillWidth(true);
         corner.setMinWidth(40);
         corner.setPrefWidth(40);
@@ -161,6 +168,10 @@ public final class TabCell extends ListCell<TerminalTab> {
         var n = 1;
         for (var i = 0; i < getIndex() && i < getListView().getItems().size(); i++) if (!getListView().getItems().get(i).separator) n++;
         number.setText(String.valueOf(n));
+        var icon = ProjectIcon.of(t.where());
+        project.setImage(icon);
+        project.setVisible(icon != null);
+        project.setManaged(icon != null);
         name.setText(t.shown());
         var where = t.where();
         var folder = Path.of(where).getFileName();

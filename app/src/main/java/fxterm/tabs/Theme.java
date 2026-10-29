@@ -39,5 +39,10 @@ public final class Theme extends DefaultSettingsProvider {
     @Override public int getBufferMaxLinesCount() { return scrollback; }
     @Override public boolean audibleBell() { return false; }
     @Override public int maxRefreshRate() { return fps; }
-    @Override public boolean copyOnSelect() { return true; }
+    /** Copying is the Copy button of the popup a selection brings up (as in Windows Terminal), not automatic. */
+    @Override public boolean copyOnSelect() { return false; }
+    /** Links are underlined all the time, so it shows what can be clicked. */
+    @Override public com.techsenger.jeditermfx.core.HyperlinkStyle.HighlightMode getHyperlinkHighlightingMode() {
+        return com.techsenger.jeditermfx.core.HyperlinkStyle.HighlightMode.ALWAYS_WITH_ORIGINAL_COLOR;
+    }
 }

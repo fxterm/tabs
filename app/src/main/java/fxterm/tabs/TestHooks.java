@@ -11,6 +11,41 @@ public final class TestHooks {
 
     static void start(TabsWindow app, Scene scene, Options o) {
         if (o.bench > 0) new Bench(app.selected(), o).run();
+        // selection: type a fixture (o.testSelect + ".txt"), report the links found on screen, drag a selection over
+        // rows 2..5 with mouse events, report the popup, the quote and the reply file, then right-click
+        if (o.testSelect != null) Thread.ofPlatform().daemon().start(() -> {
+            Bench.sleep(2500);
+            Platform.runLater(() -> app.selected().widget.getTerminalPanel().sendText("cls & type \"" + o.testSelect + ".txt\"\r"));
+            Bench.sleep(2500);
+            Platform.runLater(() -> {
+                var panel = app.selected().widget.getTerminalPanel();
+                var b = panel.getTerminalTextBuffer();
+                for (var y = 0; y < 8; y++) {
+                    var r = new Links().apply(b.getLine(y).getText());
+                    if (r != null) for (var i : r.getItems())
+                        System.err.println("test-select: link row " + y + ": " + b.getLine(y).getText().substring(i.getStartOffset(), i.getEndOffset()));
+                }
+                var canvas = scene.getFocusOwner();
+                var cell = panel.getFontSizeCell();
+                Event.fireEvent(canvas, mouse(MouseEvent.MOUSE_PRESSED, 2, 2 * cell[1] + 2, MouseButton.PRIMARY, 1));
+                Event.fireEvent(canvas, mouse(MouseEvent.MOUSE_DRAGGED, 60 * cell[0], 4 * cell[1] + 2, MouseButton.PRIMARY, 1));
+                Event.fireEvent(canvas, mouse(MouseEvent.MOUSE_DRAGGED, 79 * cell[0], 5 * cell[1] + 2, MouseButton.PRIMARY, 1));
+                Event.fireEvent(canvas, mouse(MouseEvent.MOUSE_RELEASED, 79 * cell[0], 5 * cell[1] + 2, MouseButton.PRIMARY, 1));
+                System.err.println("test-select: popup shown " + (app.selectionBar != null && app.selectionBar.isShowing()));
+                var sel = panel.getSelection();
+                System.err.println("test-select: plain\n" + Quote.plain(b, sel));
+                System.err.println("test-select: quote\n" + Quote.markdown(b, sel));
+                System.err.println("test-select: reply file for " + app.selected().where() + " -> " + Quote.replyFile(app.selected().where(), null));
+                if (app.selectionBar != null) Snapshot.write(app.selectionBar.getScene(), o.testSelect + "-popup.png");
+                Snapshot.write(scene, o.testSelect + "-selected.png");
+            });
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                var panel = app.selected().widget.getTerminalPanel();
+                Event.fireEvent(scene.getFocusOwner(), mouse(MouseEvent.MOUSE_CLICKED, 10, 10, MouseButton.SECONDARY, 1));
+                System.err.println("test-select: after right-click, selection " + panel.getSelection() + ", popup " + (app.selectionBar != null));
+            });
+        });
         // a scripted demo, for screenshots: one step per line of the file, tabs counted from 1 as listed
         //   wake N | select N | send N text (\r is Enter) | sleep MS | compose text | history | close-panel | shot FILE.png
         if (o.demo != null) Thread.ofPlatform().daemon().start(() -> {
@@ -299,6 +334,11 @@ public final class TestHooks {
     static void press(Scene scene, KeyCode code, boolean ctrl, boolean shift) {
         var target = scene.getFocusOwner() != null ? scene.getFocusOwner() : scene.getRoot();
         Event.fireEvent(target, new KeyEvent(KeyEvent.KEY_PRESSED, KeyEvent.CHAR_UNDEFINED, "", code, shift, ctrl, false, false));
+    }
+
+    static MouseEvent mouse(javafx.event.EventType<MouseEvent> type, double x, double y, MouseButton button, int clicks) {
+        return new MouseEvent(type, x, y, x + 300, y + 300, button, clicks, false, false, false, false,
+                button == MouseButton.PRIMARY, false, button == MouseButton.SECONDARY, false, false, true, null);
     }
 
     private TestHooks() { }

@@ -23,9 +23,12 @@ public final class Composer extends VBox {
         var send = Footer.button("Send + Enter  Ctrl+Enter", theme.colors.get(2), "Type it into the tab and press Enter", () -> send(true));
         var type = Footer.button("Type only", "#4a4a4a", "Type it into the tab without pressing Enter", () -> send(false));
         var close = Footer.button("Close  Esc", "#4a4a4a", "Close the editor (the text stays for next time)", app::toggleCompose);
+        var outside = Footer.button("Open in notepadfx", "#4a4a4a", "Write this to a reply file (beside the tab's PRP, or a temp file) and open it in notepadfx",
+                () -> { var t = app.selected(); if (t != null) editOutside(t, text.getText()); });
+        hint.setStyle("-fx-text-fill: " + theme.foreground + "; -fx-opacity: 0.7; -fx-font-size: 11.5;");
         var gap = new Region();
         HBox.setHgrow(gap, Priority.ALWAYS);
-        var bar = new HBox(8, new Label(), gap, type, send, close);
+        var bar = new HBox(8, hint, gap, outside, type, send, close);
         bar.setAlignment(Pos.CENTER_RIGHT);
         setSpacing(6);
         setPadding(new Insets(6, 8, 6, 8));
@@ -35,6 +38,22 @@ public final class Composer extends VBox {
             if (e.getCode() == KeyCode.ENTER && e.isControlDown()) { send(true); e.consume(); }
             else if (e.getCode() == KeyCode.ESCAPE) { app.toggleCompose(); e.consume(); }
         });
+    }
+
+    final Label hint = new Label();
+
+    /** Writes the text to a reply file and opens it in notepadfx; the compose box then holds `@<path>`, so once the
+     *  reply is written and saved there, Ctrl+Enter hands the file to claude (that send is the confirmation). */
+    void editOutside(TerminalTab t, String body) {
+        try {
+            var file = Quote.writeAndEdit(t, body);
+            if (!app.bottom.getChildren().contains(this)) app.toggleCompose();
+            text.setText("@" + file + " ");
+            text.positionCaret(text.getLength());
+            hint.setText("Opened " + file.getFileName() + ". Save it there, then Ctrl+Enter sends @path to the tab.");
+        } catch (java.io.IOException e) {
+            hint.setText("Could not write the reply file: " + e.getMessage());
+        }
     }
 
     /** Pastes the text into the shown tab (whole, even across lines), optionally presses Enter, clears, closes. */

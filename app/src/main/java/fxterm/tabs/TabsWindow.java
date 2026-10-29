@@ -62,6 +62,9 @@ public final class TabsWindow {
         scene.getPreferences().setColorScheme(theme.dark() ? javafx.application.ColorScheme.DARK : javafx.application.ColorScheme.LIGHT);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::keys);
         scene.addEventFilter(KeyEvent.ANY, e -> IdleTrim.activity());
+        // a new press anywhere in the window (a click, a right-click paste) closes the selection's popup
+        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> hideSelectionPopup());
+        scene.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> { if (e.getButton() == MouseButton.SECONDARY) hideSelectionPopup(); });
         // font size by gesture: a touch screen's pinch arrives as zoom events, a touchpad's pinch on Windows as
         // Ctrl+wheel, which is also the mouse's way
         var pinch = new double[] {1};
@@ -140,6 +143,7 @@ public final class TabsWindow {
     }
 
     void keys(KeyEvent e) {
+        hideSelectionPopup();
         var ctrlShift = e.isControlDown() && e.isShiftDown() && !e.isAltDown();
         var alt = e.isAltDown() && !e.isControlDown() && !e.isShiftDown();
         var ctrlOnly = e.isControlDown() && !e.isAltDown() && !e.isShiftDown();
@@ -270,6 +274,56 @@ public final class TabsWindow {
     static boolean inside(javafx.scene.Node n, javafx.scene.Node parent) {
         for (var p = n; p != null; p = p.getParent()) if (p == parent) return true;
         return false;
+    }
+
+    /** The small bar a selection brings up, beside where the mouse let go: Copy, Quote & reply (into the compose
+     *  box), Quote in notepadfx. A click elsewhere or any key closes it. */
+    javafx.stage.Popup selectionBar;
+
+    void selectionPopup(TerminalTab t, double x, double y) {
+        hideSelectionPopup();
+        var panel = t.widget.getTerminalPanel();
+        var sel = panel.getSelection();
+        if (sel == null) return;
+        var buffer = panel.getTerminalTextBuffer();
+        var copy = Footer.button("Copy", theme.colors.get(4), "Copy the selection", () -> {
+            var c = new ClipboardContent();
+            c.putString(Quote.plain(buffer, sel));
+            Clipboard.getSystemClipboard().setContent(c);
+            done(panel);
+        });
+        var here = Footer.button("Quote & reply", "#4a4a4a", "Put it in the compose box as a quote, to answer point by point with >>", () -> {
+            var md = Quote.markdown(buffer, sel) + "\n\n";
+            if (!bottom.getChildren().contains(composer)) toggleCompose();
+            var area = composer.text;
+            area.insertText(area.getCaretPosition(), md);
+            done(panel);
+            Platform.runLater(area::requestFocus);
+        });
+        var outside = Footer.button("Quote in notepadfx", "#4a4a4a", "Write it to a reply file (beside the tab's PRP, or a temp file) and open it in notepadfx", () -> {
+            var md = Quote.markdown(buffer, sel) + "\n\n";
+            done(panel);
+            composer.editOutside(t, md);
+        });
+        var row = new HBox(6, copy, here, outside);
+        row.setPadding(new javafx.geometry.Insets(5));
+        row.setStyle("-fx-background-color: " + Ui.shade(theme.background, 14) + "; -fx-background-radius: 6;"
+                + " -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 8, 0.2, 0, 2);");
+        selectionBar = new javafx.stage.Popup();
+        selectionBar.getContent().add(row);
+        selectionBar.setAutoHide(true);
+        selectionBar.setConsumeAutoHidingEvents(false);
+        selectionBar.show(stage, x + 8, y + 14);
+    }
+
+    void done(com.techsenger.jeditermfx.ui.TerminalPanel panel) {
+        hideSelectionPopup();
+        panel.clearSelection();
+    }
+
+    void hideSelectionPopup() {
+        if (selectionBar != null) selectionBar.hide();
+        selectionBar = null;
     }
 
     /** Opens the compose box under the terminal (pushing it up) and puts the cursor in it; closes it again. */

@@ -125,6 +125,8 @@ public final class TerminalTab {
         connector = new PtyConnector(argv, cwd, 120, 30);
         widget.setTtyConnector(connector);
         widget.getTerminalPanel().setTitleListener(t -> { if (!t.isBlank()) title.set(t); });
+        widget.addHyperlinkFilter(new Links());
+        widget.getTerminalPanel().setSelectionListener((x, y) -> { if (owner != null) owner.selectionPopup(this, x, y); });
         widget.start();
         var started = connector;
         // the program ended by itself (exit in cmd): the tab goes, as in other terminals. An exit fxterm-tabs caused

@@ -388,6 +388,11 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
             if (mySelection.get() != null) {
                 updateSelectedText();
             }
+            // fxterm-tabs fork: a selection dragged out with the mouse is announced, with where the mouse let go
+            if (e.getButton() == MouseButton.PRIMARY && dragged && mySelection.get() != null) {
+                selectionMade(e.getScreenX(), e.getScreenY());
+            }
+            dragged = false;
             repaint();
         });
         this.canvas.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
@@ -421,10 +426,37 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         createRepaintTimer();
     }
 
+    /** fxterm-tabs fork: told when the mouse has made a selection (a drag, a double or triple click), with the
+     *  screen point where it ended, so a popup can be shown there. */
+    private java.util.function.BiConsumer<Double, Double> selectionListener;
+    private boolean dragged;
+
+    public void setSelectionListener(java.util.function.BiConsumer<Double, Double> listener) {
+        selectionListener = listener;
+    }
+
+    private void selectionMade(double screenX, double screenY) {
+        var s = mySelection.get();
+        if (selectionListener == null || s == null || s.getStart().equals(s.getEnd())) return;
+        selectionListener.accept(screenX, screenY);
+    }
+
+    /** fxterm-tabs fork: a cell's width and height in pixels (for tests that point at a cell). */
+    public double[] getFontSizeCell() {
+        return new double[] {myCharSize.getWidth(), myCharSize.getHeight()};
+    }
+
+    /** fxterm-tabs fork: drops the selection, as a click elsewhere would. */
+    public void clearSelection() {
+        updateSelection(null, true);
+        repaint();
+    }
+
     private void doOnMouseDragged(MouseEvent e) {
         if (!isLocalMouseAction(e)) {
             return;
         }
+        dragged = true;
         final Point charCoords = panelToCharCoords(createPoint(e));
         if (mySelection.get() == null) {
             // prevent unlikely case where drag started outside terminal panel
@@ -471,6 +503,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
                 if (mySettingsProvider.copyOnSelect()) {
                     handleCopyOnSelect();
                 }
+                selectionMade(e.getScreenX(), e.getScreenY());
             } else if (count == 3) {
                 // select line
                 final Point charCoords = panelToCharCoords(point);
@@ -490,18 +523,16 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
                 if (mySettingsProvider.copyOnSelect()) {
                     handleCopyOnSelect();
                 }
+                selectionMade(e.getScreenX(), e.getScreenY());
             }
         } else if (e.getButton() == MouseButton.MIDDLE && mySettingsProvider.pasteOnMiddleMouseClick()
                 && isLocalMouseAction(e)) {
             handlePasteSelection();
         } else if (e.getButton() == MouseButton.SECONDARY && !e.isControlDown()) {
-            // fxterm-tabs: right-click as in the Windows console: copies the selection if there is one, else pastes.
+            // fxterm-tabs: right-click pastes (copying is in the popup a selection brings up); a selection goes.
             // Ctrl+right-click still opens the menu.
-            if (mySelection.get() != null) {
-                handleCopy(true, false);
-            } else {
-                handlePaste();
-            }
+            updateSelection(null, true);
+            handlePaste();
         } else if (e.getButton() == MouseButton.SECONDARY) {
             HyperlinkStyle contextHyperlink = findHyperlink(point);
             TerminalActionProvider provider =

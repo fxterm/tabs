@@ -47,7 +47,7 @@ public final class ReadTerminal implements SpeechListener {
 
     static synchronized CompletableFuture<Voice> voice(String saved) {
         if (shared == null) shared = CompletableFuture.supplyAsync(() -> {
-            var v = ReadAloud.all();
+            var v = Os.WIN ? ReadAloud.all() : ReadAloud.deepgram(); // WORKAROUND, speechfx PRP 02: all() starts the Windows voice (PowerShell) and fails on a Mac
             if (saved != null && v.voices().contains(saved)) v.select(saved);
             return v;
         });

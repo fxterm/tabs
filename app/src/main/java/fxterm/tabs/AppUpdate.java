@@ -16,8 +16,11 @@ final class AppUpdate {
         return e != null && Files.isExecutable(Path.of(e)) ? e : null;
     }
 
+    /** Only a release exe has an update address in its configuration; the exe built for this machine runs a local jar
+     *  and has none, so everything else is sent to the release page. */
     static boolean possible() {
-        return exe() != null;
+        var url = System.getProperty("io.github.jarrunner.jr.update.url");
+        return exe() != null && url != null && !url.isBlank();
     }
 
     /** The footer's click: ask, update off the UI thread, then offer the restart. */

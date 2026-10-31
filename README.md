@@ -6,7 +6,7 @@ Full name **FxTerminalTabs**; we simply call it **Tabs**. The project and its fi
 
 A terminal for Windows and macOS with vertical tabs, made for long sessions with AI coding agents such as Claude Code. Tabs sleep and wake like a browser's, every session can be found again in History, and several windows share one process. An idle window uses a few tens of MB.
 
-Status: 0.1, early releases. Windows is the main platform; macOS (Apple silicon and Intel) is new in 0.1.4 and tested far less (Read aloud and dictation need a voice engine and speech keys that a Mac does not have yet).
+Status: 0.1, early releases. Windows is the main platform; macOS (Apple silicon and Intel) is new in 0.1.4 and tested far less.
 
 ![Tabs with two groups of tabs; Claude Code has just answered a question about a small Java project](docs/screenshots/main.png)
 
@@ -87,7 +87,7 @@ What differs from Windows:
 - The Command key does what Ctrl does on Windows: Cmd+T new tab, Cmd+N new window, Cmd+W close, Cmd+1..9 go to a tab, Cmd+= / Cmd+- / Cmd+0 font size, Cmd+Shift+E compose, Cmd+Shift+H history, Cmd+C / Cmd+V copy and paste. Ctrl+Tab and Ctrl+Shift+Tab still step between tabs, and every Ctrl key goes to the program in the tab.
 - New tabs run your login shell (`$SHELL -l`, zsh by default). A tab that ran Claude Code wakes as `claude ... --resume <id>` inside a login shell, and drops back to a shell when claude ends.
 - The look is VS Code's terminal in its Dark Modern theme, in Menlo. `--theme tabby` uses an existing Tabby configuration instead (`~/Library/Application Support/tabby/config.yaml`).
-- Not on a Mac yet: dragging a tab out of the window into a new window, clickable file paths (web links work), Read aloud (it needs a Deepgram key; the free system voices are not connected) and dictation (it needs speech keys, and the app needs a microphone permission text that the launcher cannot write yet). Everything else in this README works on a Mac.
+- Not on a Mac yet: dragging a tab out of the window into a new window, clickable file paths (web links work), and dictation (it needs speech keys, and the app needs a microphone permission text that the launcher cannot write yet). Read aloud works with the Deepgram voices when `~/speechfx/keys/deepgram_keys.xml` holds a key; the free system voices are not connected. Everything else in this README works on a Mac.
 
 ## Keys
 

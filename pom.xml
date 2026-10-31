@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.fxterm</groupId>
     <artifactId>fxterm-tabs-parent</artifactId>
-    <version>0.1.6</version>
+    <version>0.1.7</version>
     <packaging>pom</packaging>
     <description>fxterm-tabs (FxTerminalTabs): a Windows terminal with vertical tabs and sleeping tabs, made for long Claude Code sessions.</description>
 
@@ -81,6 +81,15 @@
             </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><version>${jackson.version}</version>
+            </dependency>
+            <!-- every Jackson module at databind's version: the speech libraries bring these two at 2.18.0, and an XML
+                 mapper of 2.18 on databind 2.21 fails at its first bean (NoSuchFieldError _anyGetterWriter), which is
+                 what stopped dictation ("Dictation could not start") on every platform -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId><artifactId>jackson-dataformat-xml</artifactId><version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId><artifactId>jackson-datatype-jsr310</artifactId><version>${jackson.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

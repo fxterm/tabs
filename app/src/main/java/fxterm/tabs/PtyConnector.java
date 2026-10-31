@@ -108,5 +108,17 @@ public final class PtyConnector implements TtyConnector {
 
     @Override public String getName() { return name; }
 
-    @Override public void close() { process.destroy(); }
+    /** Ends the shell and, on a Mac, everything it started: a ConPTY takes its whole tree with it on Windows, but closing a
+     *  Unix pty only hangs up the shell, which can outlive it with its children (a claude kept running after its tab
+     *  was hibernated, and was then resumed a second time). Stragglers are killed after two seconds. */
+    @Override public void close() {
+        var tree = Os.WIN ? List.<ProcessHandle>of() : ProcessHandle.of(process.pid()).map(h -> h.descendants().toList()).orElse(List.of());
+        process.destroy();
+        tree.forEach(ProcessHandle::destroy);
+        if (!tree.isEmpty()) Thread.ofPlatform().daemon().start(() -> {
+            try { Thread.sleep(2_000); } catch (InterruptedException e) { return; }
+            tree.stream().filter(ProcessHandle::isAlive).forEach(ProcessHandle::destroyForcibly);
+            if (process.isAlive()) process.destroyForcibly();
+        });
+    }
 }

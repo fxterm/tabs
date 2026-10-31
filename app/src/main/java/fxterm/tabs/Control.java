@@ -31,6 +31,7 @@ public final class Control {
               hibernate id=   wake id=   close id=
               window-new                             a new window with a fresh tab
               shot file=<png> [window=0]             a picture of a window
+              key spec=meta+shift+e [window=0]       one key press to the window (ctrl, alt, shift, meta + a KeyCode name)
               events [n=20]                          the last events from the event log
             Ids come from `list`; they last while Tabs runs. Windows count from 0, tabs from 0 in list order.
             """;
@@ -216,6 +217,7 @@ public final class Control {
             case "close" -> { var t = tab(app, r); t.owner.close(t); }
             case "window-new" -> out.put("window", app.windows.indexOf(app.newWindow(null, Double.NaN, Double.NaN, app.windows.getFirst())));
             case "shot" -> Snapshot.write(window(app, r).scene, need(r, "file"));
+            case "key" -> TestHooks.pressKeys(window(app, r).scene, need(r, "spec"));
             case "events" -> {
                 try {
                     var all = Files.exists(Events.file) ? Files.readAllLines(Events.file) : List.<String>of();

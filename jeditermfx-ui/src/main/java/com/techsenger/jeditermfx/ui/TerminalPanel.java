@@ -2166,6 +2166,13 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         }
         try {
             final KeyCode keycode = e.getCode();
+            // fxterm-tabs: a plain Esc is sent from its key press. Windows gives the press no text and sends the character as
+            // a separate typed event; a Mac may send no typed event at all, so waiting for one lost Esc there. The typed
+            // event that may still follow is ignored (a handled press sets myIgnoreNextKeyTypedEvent), so Esc goes once.
+            if (keycode == KeyCode.ESCAPE && !e.isControlDown() && !e.isAltDown() && !e.isMetaDown() && !e.isShiftDown()) {
+                myTerminalStarter.sendBytes(new byte[]{ASCII_ESC}, true);
+                return true;
+            }
             final char keychar;
             if (!e.getText().isEmpty()) {
                 keychar = e.getText().charAt(0);

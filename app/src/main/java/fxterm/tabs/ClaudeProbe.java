@@ -85,7 +85,10 @@ public final class ClaudeProbe {
     static List<String> flags(String commandLine) {
         var tokens = tokens(commandLine);
         var out = new ArrayList<String>();
-        for (var i = 1; i < tokens.size(); i++) {
+        var first = 1;
+        // on a Mac the command line may start with an interpreter and a script (node cli.js ...) before the flags
+        if (!Os.WIN) while (first < tokens.size() && !tokens.get(first).startsWith("-")) first++;
+        for (var i = first; i < tokens.size(); i++) {
             var t = tokens.get(i);
             if (DROP_WITH_VALUE.contains(t)) i++;
             else if (!DROP.contains(t)) out.add(t);

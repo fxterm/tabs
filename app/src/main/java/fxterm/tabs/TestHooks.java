@@ -115,6 +115,7 @@ public final class TestHooks {
                                 case "history" -> app.showHistory();
                                 case "close-panel" -> { app.hideHistory(); if (app.bottom.getChildren().contains(app.composer)) app.toggleCompose(); }
                                 case "shot" -> Snapshot.write(scene, p[1]);
+                                case "key" -> pressKeys(scene, p[1]);
                                 default -> System.err.println("demo: unknown step " + line);
                             }
                         } catch (Exception e) {
@@ -379,6 +380,15 @@ public final class TestHooks {
         var t = app.selected();
         System.err.println("test-wake: " + when + ": " + (t.live() ? "live" : "asleep") + ", where " + t.where()
                 + ", focus on " + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName()));
+    }
+
+    /** `key meta+shift+e`: modifiers (ctrl, alt, shift, meta) and a KeyCode name, as one press to the focused node. */
+    static void pressKeys(Scene scene, String spec) {
+        var parts = List.of(spec.toLowerCase().split("[+]"));
+        var mods = new HashSet<>(parts);
+        var code = KeyCode.valueOf(parts.getLast().toUpperCase());
+        var target = scene.getFocusOwner() != null ? scene.getFocusOwner() : scene.getRoot();
+        Event.fireEvent(target, new KeyEvent(KeyEvent.KEY_PRESSED, KeyEvent.CHAR_UNDEFINED, "", code, mods.contains("shift"), mods.contains("ctrl"), mods.contains("alt"), mods.contains("meta")));
     }
 
     /** A key press as the keyboard would deliver it, sent to the focused node through the scene. */

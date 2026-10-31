@@ -67,6 +67,11 @@ public final class ReadTerminal implements SpeechListener {
     /** Reads the selection of this tab's terminal from its first word, lighting each word as it is said. */
     void start(TerminalTab t, TerminalTextBuffer buffer, TerminalSelection selection) {
         stop();
+        // WORKAROUND until speechfx has a macOS voice (speechfx PRP 02): its only free voice is the Windows one
+        if (Os.MAC && !Files.exists(Path.of(System.getProperty("user.home"), "speechfx", "keys", "deepgram_keys.xml"))) {
+            problem.accept("Read aloud has no voice on a Mac yet: it needs a Deepgram key in ~/speechfx/keys, and the free macOS voices are not connected.");
+            return;
+        }
         var s = extract(buffer, selection);
         if (s.text.isBlank()) {
             problem.accept("There is nothing to read in the selection.");

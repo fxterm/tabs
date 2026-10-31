@@ -233,6 +233,10 @@ public final class TerminalTab {
     void sleep(SavedTab s) {
         close();
         sleeping = s;
+        // waking starts what was saved (claude --resume ... in its folder, or the shell in its last folder), not whatever
+        // the tab was first opened with: a plain shell in which claude had been typed would otherwise wake as a bare shell
+        if (s.claude() || s.shell != null) argv = s.command();
+        if (s.cwd != null) cwd = s.cwd;
         title.set(s.title);
         asleep.set(true);
         // a bar saying what waking runs, with the buttons; under it the tab as it looked, dimmed, selectable to copy

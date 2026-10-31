@@ -48,7 +48,10 @@ public final class SavedTab {
             var sh = shell != null ? shell : Os.shellPath();
             if (!claude()) return new ArrayList<>(List.of(sh, "-l"));
             var line = claudeCommand().stream().map(Os::quote).collect(Collectors.joining(" "));
-            return new ArrayList<>(List.of(sh, "-l", "-i", "-c", line + "; exec " + Os.quote(sh) + " -l"));
+            // not interactive: a login-and-interactive zsh with a heavy .zshrc took 12 s on one Mac before claude even started;
+            // the places claude is installed are put on PATH here instead, and the shell that follows is the interactive one
+            var path = "export PATH=\"$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"; ";
+            return new ArrayList<>(List.of(sh, "-l", "-c", path + line + "; exec " + Os.quote(sh) + " -l"));
         }
         if (!claude()) return new ArrayList<>(List.of(shell != null ? shell : "cmd.exe"));
         var argv = new ArrayList<>(List.of("cmd.exe", "/k"));

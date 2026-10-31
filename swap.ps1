@@ -2,9 +2,10 @@
 # hibernates each live tab, closes Tabs through its own close dialog (which saves every tab of every window),
 # swaps the jar, starts it again and checks that every window came back.
 #   swap.ps1             stops and says why when a claude is waiting for an answer or working
+#   swap.ps1 -Jar <file> puts that jar in dist instead of shade\fxterm-tabs.jar (e.g. a downloaded release jar)
 #   swap.ps1 -Force      hibernates a claude that is waiting for an answer too (the question is lost; the session resumes)
 # A copy of the saved state is kept as session.before-swap-<time>.json in ~\fxterm\tabs.
-param([switch]$Force, [int]$CalmSeconds = 30, [int]$WaitMinutes = 8)
+param([switch]$Force, [int]$CalmSeconds = 30, [int]$WaitMinutes = 8, [string]$Jar)
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $exe = Join-Path $here 'dist\fxterm-tabs.exe'
@@ -58,7 +59,8 @@ while ((Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) -and (Get-Date) 
 if (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) { throw "Tabs did not close; nothing was swapped" }
 
 # 4. the new jar, and start
-Copy-Item (Join-Path $here 'shade\fxterm-tabs.jar') (Join-Path $here 'dist\fxterm-tabs.jar') -Force
+$newJar = if ($Jar) { $Jar } else { Join-Path $here 'shade\fxterm-tabs.jar' }
+Copy-Item $newJar (Join-Path $here 'dist\fxterm-tabs.jar') -Force
 Start-Process $exe
 $until = (Get-Date).AddSeconds(90); $after = $null
 while (-not $after -and (Get-Date) -lt $until) {

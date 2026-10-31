@@ -17,7 +17,9 @@
 # $env:GH names the GitHub CLI (default gh); $env:MVN the Maven 3 to use.
 
 param([switch]$DryRun, [string]$Changes)
-$ErrorActionPreference = 'Stop'
+# Not 'Stop': in Windows PowerShell 5.1 a native program's stderr (gitgate's account banner on gh and git, git's CRLF
+# warnings, maven's warnings) becomes a terminating error under Stop. Every native call below checks $LASTEXITCODE.
+$ErrorActionPreference = 'Continue'
 Set-Location $PSScriptRoot
 
 $gh = if ($env:GH) { $env:GH } else { 'gh' }
@@ -29,6 +31,7 @@ function Sha([string]$ref) { @(git rev-parse $ref) | Where-Object { $_ -match '^
 
 # Edits in this working tree do not matter: the build is a clone of HEAD, and HEAD must be the pushed commit.
 git fetch -q origin
+if ($LASTEXITCODE -ne 0) { throw 'git fetch failed' }
 if ((Sha HEAD) -ne (Sha '@{u}')) { throw 'HEAD is not pushed - push first' }
 if (-not $DryRun) {
     & $gh release view $tag --repo $repo *> $null
@@ -43,7 +46,8 @@ if ((Sha HEAD) -ne (@(git -C $work rev-parse HEAD) | Where-Object { $_ -match '^
 Write-Host "building $tag in $work"
 for ($i = 1; $i -le 4; $i++) {
     # the network here drops connections mid-download often enough that one retry is not enough
-    & $mvn -q -B -DskipTests -f (Join-Path $work 'pom.xml') -Pjrexe -Djr.source=url clean verify
+    # quoted: Windows PowerShell 5.1 splits an unquoted -Djr.source=url at the dot into two arguments
+    & $mvn '-q' '-B' '-DskipTests' '-f' (Join-Path $work 'pom.xml') '-Pjrexe' '-Djr.source=url' 'clean' 'verify'
     if ($LASTEXITCODE -eq 0) { break }
     if ($i -eq 4) { throw 'mvn failed' }
     Write-Host "build attempt $i failed, retrying"

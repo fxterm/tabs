@@ -66,7 +66,7 @@ Ctrl+= makes the text bigger, Ctrl+- smaller, and Ctrl+0 goes back to the defaul
 ### Also
 
 - The right mouse button pastes (Ctrl+right-click keeps the menu).
-- The footer tells whether a newer Tabs is released: it checks when Tabs starts and every 24 hours, and the small button beside the status checks now. Nothing is downloaded by itself; click the status for the release page, or run `fxterm-tabs.exe -Xjr:update` from a release exe.
+- The footer tells whether a newer Tabs is released: it checks when Tabs starts and every 24 hours, and the small button beside the status checks now. Nothing is downloaded by itself. When one is out, click "Update ... available": Tabs asks, downloads it (checked against its SHA-256), replaces itself, and offers to restart, with every tab saved and waking where it was. The same on a Mac. From a terminal: `fxterm-tabs -Xjr:update` (a copy not started through the release exe opens the release page instead).
 - The footer shows the tab's folder; click it to copy. Copy text copies the whole tab, Find (Ctrl+F) searches it.
 - A tab's menu: copy folder path, copy command (the line that brings the tab back in any cmd window), rename, colour, duplicate, hibernate or restore, move to window, insert separator above, close, close tabs above / below / others.
 - Colours and font size are read from an existing Tabby configuration, so moving over looks the same.
@@ -80,7 +80,7 @@ Install in Terminal (curl sets no download mark, so macOS does not block the fil
 curl -fLo /tmp/fxterm-tabs https://github.com/fxterm/tabs/releases/latest/download/fxterm-tabs-macos-$(uname -m) && chmod +x /tmp/fxterm-tabs && /tmp/fxterm-tabs -Xjr:install
 ```
 
-That puts `Tabs.app` in `~/Applications` and a command `fxterm-tabs` in `~/.local/bin`; no administrator rights. It needs Java 25 (jr offers to download one if none is found). Update later with `fxterm-tabs -Xjr:update`; the footer says when a newer release exists.
+That puts `Tabs.app` in `~/Applications` and a command `fxterm-tabs` in `~/.local/bin`; no administrator rights. It needs Java 25 (jr offers to download one if none is found). Update later by clicking the footer's "Update ... available", or with `fxterm-tabs -Xjr:update`.
 
 What differs from Windows:
 

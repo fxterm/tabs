@@ -125,9 +125,14 @@ public final class Ui {
     /** F2 confirms, Esc cancels; keys are ignored for the first moments, so a keystroke meant for a terminal
      *  cannot answer it. */
     static boolean confirm(Stage owner, String message) {
-        var a = new Alert(Alert.AlertType.CONFIRMATION, message + "\n\nF2: close anyway    Esc: keep working", ButtonType.OK, ButtonType.CANCEL);
+        return ask(owner, "Close Tabs?", message, "F2: close anyway    Esc: keep working");
+    }
+
+    /** The same question with its own header and hint line (the update asks it too). */
+    static boolean ask(Stage owner, String header, String message, String hint) {
+        var a = new Alert(Alert.AlertType.CONFIRMATION, message + "\n\n" + hint, ButtonType.OK, ButtonType.CANCEL);
         a.initOwner(owner);
-        a.setHeaderText("Close Tabs?");
+        a.setHeaderText(header);
         var armedAt = System.currentTimeMillis() + 1500;
         a.getDialogPane().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
             if (System.currentTimeMillis() < armedAt) { e.consume(); return; }

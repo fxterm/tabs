@@ -60,6 +60,8 @@ public final class PtyConnector implements TtyConnector {
             env.putIfAbsent("LANG", "en_US.UTF-8");
         }
         env.keySet().removeIf(PtyConnector::inheritedFromClaude);
+        // the launcher's own settings (jr) are for this process, not for every program run in a tab
+        env.computeIfPresent("JAVA_TOOL_OPTIONS", (k, v) -> v.contains("io.github.jarrunner") ? null : v);
         if (!argv.isEmpty() && Path.of(argv.getFirst()).getFileName().toString().equalsIgnoreCase("cmd.exe"))
             env.put("PROMPT", CWD_PROMPT + env.getOrDefault("PROMPT", "$P$G").replaceFirst("^CLINK ", ""));
         name = String.join(" ", argv);

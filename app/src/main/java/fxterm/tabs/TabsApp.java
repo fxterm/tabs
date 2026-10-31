@@ -19,6 +19,8 @@ public final class TabsApp extends Application {
     /** Read aloud for the selection of a terminal; its controls show in the footer of the window it is reading in. */
     final ReadTerminal reader = new ReadTerminal(msg -> Platform.runLater(() -> message(msg)));
     UpdateCheck updates;
+    /** Set after an in-app update: when Tabs has saved everything and quit, the new version starts. */
+    volatile boolean restartAfterQuit;
     /** Where a tab from another launch (Tabby's open / run) goes. */
     TabsWindow lastFocused;
 
@@ -262,6 +264,7 @@ public final class TabsApp extends Application {
                 if (!options.offscreen && options.state == null || options.serve) Instance.release();
                 Control.release(options.state);
                 Events.log("quit", "windows", snapshot.size(), "tabs", saved.size());
+                if (restartAfterQuit) AppUpdate.relaunch();
                 Platform.exit();
                 System.exit(0);
             });

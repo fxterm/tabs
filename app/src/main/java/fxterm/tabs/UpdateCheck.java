@@ -146,7 +146,8 @@ public final class UpdateCheck {
                 .format(java.time.format.DateTimeFormatter.ofPattern("d MMM HH:mm"));
         var line = "This is Tabs " + current + ". Last checked: " + when + (error != null ? " (the last try failed: " + error + ")" : "") + ".\n"
                 + "Checked at start and every 24 hours. ";
-        return line + (available() ? "Click to open the release page. A release exe also updates itself: fxterm-tabs.exe -Xjr:update."
+        return line + (available() ? (AppUpdate.possible() ? "Click to update now (nothing changes until you restart). From a terminal: fxterm-tabs -Xjr:update."
+                : "Click to open the release page.")
                 : "The button on the right checks now.");
     }
 }

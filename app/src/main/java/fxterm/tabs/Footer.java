@@ -53,7 +53,7 @@ public final class Footer extends HBox {
         // the update line: quiet text, with a small button that asks again
         update.setStyle(Ui.footerText(theme));
         update.setTooltip(new Tooltip());
-        update.setOnMouseClicked(e -> { if (win.app.updates != null && win.app.updates.available()) openPage(); });
+        update.setOnMouseClicked(e -> AppUpdate.now(win.app, win));
         recheck = small("⟳", "Check for a newer version now", () -> { if (win.app.updates != null) win.app.updates.recheck(); });
         // the reading controls, shown only in the window whose tab is being read
         speed.setStyle(Ui.footerText(theme) + " -fx-opacity: 0.9; -fx-min-width: 30; -fx-alignment: center;");
@@ -115,14 +115,6 @@ public final class Footer extends HBox {
     static void tint(Button b, String accent) {
         if (accent == null || accent.equals("#4a4a4a") || theme == null) return;
         b.setStyle("-fx-text-fill: " + Ui.mix(theme.foreground, accent, 0.45) + "; -fx-border-color: " + Ui.mix(Ui.shade(theme.background, 30), accent, 0.35) + ";");
-    }
-
-    static void openPage() {
-        try {
-            new ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", UpdateCheck.PAGE).start();
-        } catch (IOException e) {
-            System.err.println("fxterm-tabs: could not open " + UpdateCheck.PAGE + ": " + e);
-        }
     }
 
     /** tabs: this window's (for Restore all); every: all windows' (for the RAM total). */

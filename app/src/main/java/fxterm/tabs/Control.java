@@ -82,6 +82,10 @@ public final class Control {
         var path = socket(state);
         try {
             Files.createDirectories(path.getParent());
+            if (alive(path)) {
+                System.err.println("fxterm-tabs: another Tabs answers on " + path + ", so this one has no control socket");
+                return;
+            }
             Files.deleteIfExists(path);
             var server = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
             server.bind(UnixDomainSocketAddress.of(path));
@@ -96,15 +100,29 @@ public final class Control {
                     }
                 }
             });
+            owned = path;
             System.err.println("fxterm-tabs: control socket " + path);
         } catch (IOException e) {
             System.err.println("fxterm-tabs: no control socket: " + e);
         }
     }
 
+    /** The socket this process bound; release removes only that one, never another running Tabs's. */
+    static Path owned;
+
+    /** True when something is listening on the socket file (a real Tabs, as opposed to a file left by a crash). */
+    static boolean alive(Path path) {
+        if (!Files.exists(path)) return false;
+        try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(path))) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     static void release(String state) {
         try {
-            Files.deleteIfExists(socket(state));
+            if (owned != null) Files.deleteIfExists(owned);
         } catch (IOException ignored) { }
     }
 

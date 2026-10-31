@@ -94,7 +94,10 @@ public final class TabsApp extends Application {
     TerminalTab wire(TerminalTab t) {
         t.onExit = x -> { if (x.owner != null) x.owner.close(x); };
         t.wake = () -> { if (t.owner != null) t.owner.wake(t); };
-        t.title.addListener((ov, was, now) -> { if (t.owner != null) t.owner.refresh(); });
+        t.title.addListener((ov, was, now) -> {
+            t.noteTitle(now);
+            if (t.owner != null) t.owner.refreshSoon();
+        });
         return t;
     }
 
@@ -132,6 +135,24 @@ public final class TabsApp extends Application {
         }
         if (t.owner != null) t.owner.take(t);
         to.put(t, index);
+        to.stage.toFront();
+    }
+
+    /** A whole group (its label and the tabs under it, in order) sent to another window, or to a new one when `to` is
+     *  null. The tabs keep running; the numbers of every window follow. */
+    void moveGroupTo(TabsWindow from, TerminalTab head, TabsWindow to) {
+        var block = from.group(head);
+        var rest = new ArrayList<>(block);
+        if (to == null) {
+            var first = block.stream().filter(x -> !x.separator).findFirst().orElse(null);
+            if (first == null) return;
+            to = newWindow(first, Double.NaN, Double.NaN, from);
+            rest.remove(first);
+            // the label goes above the tab the window opened with, the others follow it
+            moveTo(head, to, 0);
+            rest.remove(head);
+        }
+        for (var x : rest) moveTo(x, to, Integer.MAX_VALUE);
         to.stage.toFront();
     }
 

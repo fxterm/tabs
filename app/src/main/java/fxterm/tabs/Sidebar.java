@@ -81,18 +81,7 @@ public final class Sidebar {
     ContextMenu menu(TerminalTab t) {
         var rename = new MenuItem("Rename…");
         rename.setOnAction(e -> rename(t));
-        var colour = new Menu("Colour");
-        var none = new MenuItem("None");
-        none.setOnAction(e -> recolour(t, null));
-        colour.getItems().add(none);
-        COLOURS.forEach((name, index) -> {
-            var swatch = new Region();
-            swatch.setMinSize(12, 12);
-            swatch.setStyle("-fx-background-color: " + theme.colors.get(index) + "; -fx-background-radius: 2;");
-            var item = new MenuItem(name, swatch);
-            item.setOnAction(e -> recolour(t, theme.colors.get(index)));
-            colour.getItems().add(item);
-        });
+        var colour = colourMenu("Colour", hex -> recolour(t, hex));
         // browser-style: copy, this tab, closing
         var copyDir = new MenuItem("Copy folder path");
         copyDir.setOnAction(e -> app.copy(t.where()));
@@ -147,7 +136,24 @@ public final class Sidebar {
                 new SeparatorMenuItem(), close, above, below, others);
     }
 
-    /** A separator's own menu: its label, another separator, removing it. */
+    /** The colour choices (none, then the theme's six), each handed to what the menu is for. */
+    Menu colourMenu(String title, java.util.function.Consumer<String> apply) {
+        var colour = new Menu(title);
+        var none = new MenuItem("None");
+        none.setOnAction(e -> apply.accept(null));
+        colour.getItems().add(none);
+        COLOURS.forEach((name, index) -> {
+            var swatch = new Region();
+            swatch.setMinSize(12, 12);
+            swatch.setStyle("-fx-background-color: " + theme.colors.get(index) + "; -fx-background-radius: 2;");
+            var item = new MenuItem(name, swatch);
+            item.setOnAction(e -> apply.accept(theme.colors.get(index)));
+            colour.getItems().add(item);
+        });
+        return colour;
+    }
+
+    /** A separator's own menu: its label, its colour (the group's), another separator, removing it. */
     ContextMenu separatorMenu(TerminalTab t) {
         var rename = new MenuItem("Rename…");
         rename.setOnAction(e -> rename(t));
@@ -161,7 +167,22 @@ public final class Sidebar {
         var fold = new MenuItem(t.collapsed ? "Show the group's tabs" : "Fold the group");
         fold.setOnAction(e -> app.toggleGroup(t));
         icon(fold, t.collapsed ? "▸" : "▾");
-        return new ContextMenu(fold, rename, group, new SeparatorMenuItem(), remove);
+        // the label's colour is the colour of every tab under it
+        var colour = colourMenu("Colour the group", hex -> app.colourGroup(t, hex));
+        icon(colour, "◐");
+        // the whole group, in order, to another window of this process or to a new one; its tabs keep running
+        var moveTo = new Menu("Move group to window");
+        for (var w : app.app.windows.stream().filter(w -> w != app).toList()) {
+            var item = new MenuItem("Window " + (app.app.windows.indexOf(w) + 1) + " (" + w.tabs.size() + " rows)");
+            item.setOnAction(e -> app.app.moveGroupTo(app, t, w));
+            moveTo.getItems().add(item);
+        }
+        if (!moveTo.getItems().isEmpty()) moveTo.getItems().add(new SeparatorMenuItem());
+        var fresh = new MenuItem("New window");
+        fresh.setOnAction(e -> app.app.moveGroupTo(app, t, null));
+        moveTo.getItems().add(fresh);
+        icon(moveTo, "↗");
+        return new ContextMenu(fold, rename, colour, moveTo, group, new SeparatorMenuItem(), remove);
     }
 
     static void icon(MenuItem item, String glyph) {

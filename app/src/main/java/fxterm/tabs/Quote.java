@@ -22,6 +22,15 @@ public final class Quote {
     /** The selection as a markdown quote: bold kept as **, the terminal's line wraps and padding and claude's own
      *  markers (the reply dot, the tool-result corner, rules) taken out, every line prefixed with "> ". */
     static String markdown(TerminalTextBuffer b, TerminalSelection s) {
+        return quote(markdownLines(b, s));
+    }
+
+    /** The same text without the "> ": for notepadfx, where a quote block would lose the original's formatting. */
+    static String markdownAsIs(TerminalTextBuffer b, TerminalSelection s) {
+        return String.join("\n", markdownLines(b, s));
+    }
+
+    static List<String> markdownLines(TerminalTextBuffer b, TerminalSelection s) {
         var pts = SelectionUtil.sortPoints(s.getStart(), s.getEnd());
         Point from = pts.getFirst(), to = pts.getSecond();
         var lines = new ArrayList<String>();
@@ -41,7 +50,7 @@ public final class Quote {
         } finally {
             b.unlock();
         }
-        return quote(clean(lines));
+        return clean(lines);
     }
 
     /** One line's columns x0..x1 with bold runs between ** (spaces kept outside the markers). */

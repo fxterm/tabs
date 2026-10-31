@@ -39,6 +39,9 @@ public final class TabsWindow {
         this.options = app.options;
         this.theme = app.theme;
         this.stage = stage;
+        soon.setOnFinished(e -> refresh());
+        // a tab added or taken away here renumbers the windows after this one
+        tabs.addListener((ListChangeListener<TerminalTab>) c -> app.windows.forEach(TabsWindow::refreshSoon));
         footer = new Footer(this, theme);
         composer = new Composer(this, theme);
         sidebar = new Sidebar(this, tabs, theme);
@@ -175,10 +178,23 @@ public final class TabsWindow {
         list.getSelectionModel().select(real.get(Math.floorMod(at + by, real.size())));
     }
 
-    /** Alt or Ctrl+number: the i-th real tab (separators are not counted, as their rows show no number). */
+    /** Alt or Ctrl+number: the tab with that number (separators are not counted, as their rows show no number).
+     *  Numbers run on from one window to the next, so a window holds the numbers after the windows before it. */
     void select(int i) {
         var real = realTabs();
-        if (i >= 0 && i < real.size()) list.getSelectionModel().select(real.get(i));
+        var at = i - (firstNumber() - 1);
+        if (at >= 0 && at < real.size()) list.getSelectionModel().select(real.get(at));
+    }
+
+    /** The number of this window's first tab: one more than the tabs in the windows before it (tabs are numbered
+     *  straight on across windows; when there are too many, split them over windows). */
+    int firstNumber() {
+        var n = 1;
+        for (var w : app.windows) {
+            if (w == this) break;
+            n += w.realTabs().size();
+        }
+        return n;
     }
 
     List<TerminalTab> realTabs() {
@@ -312,8 +328,8 @@ public final class TabsWindow {
             done(panel);
             Platform.runLater(composer::focusEditor);
         });
-        var outside = Footer.button("Quote in notepadfx", null, "Write it to a reply file (beside the tab's PRP, or a temp file) and open it in notepadfx", () -> {
-            var md = Quote.markdown(buffer, sel) + "\n\n";
+        var outside = Footer.button("Quote in notepadfx", null, "Write it to a reply file (beside the tab's PRP, or a temp file) and open it in notepadfx, the original as it is, to answer under it with >>", () -> {
+            var md = Quote.markdownAsIs(buffer, sel) + "\n\n";
             done(panel);
             composer.editOutside(t, md);
         });
@@ -389,10 +405,16 @@ public final class TabsWindow {
 
     /** Puts one live tab to sleep now, as RAM pressure would: saved (claude session and flags, its text), process ended. */
     void hibernate(TerminalTab t) {
+        if (t.hibernating || !t.live()) return;
+        // the row says so at once: reading claude's flags is a slow call when the machine is busy, and a click that
+        // shows nothing looks like a hang
+        t.hibernating = true;
+        app.refreshAll();
         Thread.ofPlatform().daemon().start(() -> {
             var saved = t.snapshot(ClaudeProbe.commandLines());
             Platform.runLater(() -> {
-                if (saved == null || !t.live()) return;
+                t.hibernating = false;
+                if (saved == null || !t.live()) { app.refreshAll(); return; }
                 if (app.reader.tab == t) app.reader.stop();
                 app.history.record(saved, "hibernated");
                 t.sleep(saved);
@@ -482,18 +504,49 @@ public final class TabsWindow {
 
     /** Window title, side list and footer, after a title, RAM or selection change. */
     void refresh() {
+        soon.stop();
         var t = selected();
-        stage.setTitle(t == null ? "Tabs" : "Tabs - " + t.shown() + " (" + t.where() + ")");
-        // the list is as tall as the rows it shows (a folded group's tabs take none), so + sits right under the last
-        sidebar.fit();
-        list.refresh();
+        // without claude's animated symbol: its width changes every frame, and the rest of the title (in the title bar
+        // and on the taskbar button) slid left and right with it
+        stage.setTitle(t == null ? "Tabs" : "Tabs - " + TabCell.plain(t.shown()) + " (" + t.where() + ")");
+        // the list is only laid out again when something it shows changed: a title that a program rewrites many
+        // times a second (claude's spinner) used to redraw every row each time, and the sidebar shook under it
+        var rows = rowsShown();
+        if (!rows.equals(lastRows)) {
+            lastRows = rows;
+            // the list is as tall as the rows it shows (a folded group's tabs take none), so + sits right under the last
+            sidebar.fit();
+            list.refresh();
+        }
         // the terminal's border and the divider take the active tab's colour, so tab and terminal read as one
-        var frame = Ui.frame(theme, t == null ? null : t.color.get());
-        content.setStyle("-fx-border-color: " + frame + "; -fx-border-width: " + Ui.FRAME + " " + Ui.FRAME + " " + Ui.FRAME + " 0;"
-                + " -fx-background-color: " + theme.background + ";");
-        split.lookupAll(".split-pane-divider").forEach(d -> d.setStyle("-fx-background-color: " + frame + "; -fx-background-insets: 0; -fx-border-width: 0; -fx-padding: 0 "
-                + (Ui.FRAME / 2.0) + " 0 " + (Ui.FRAME / 2.0) + ";"));
+        var frame = Ui.frame(theme, colourOf(t));
+        if (!frame.equals(lastFrame)) {
+            lastFrame = frame;
+            content.setStyle("-fx-border-color: " + frame + "; -fx-border-width: " + Ui.FRAME + " " + Ui.FRAME + " " + Ui.FRAME + " 0;"
+                    + " -fx-background-color: " + theme.background + ";");
+            split.lookupAll(".split-pane-divider").forEach(d -> d.setStyle("-fx-background-color: " + frame + "; -fx-background-insets: 0; -fx-border-width: 0; -fx-padding: 0 "
+                    + (Ui.FRAME / 2.0) + " 0 " + (Ui.FRAME / 2.0) + ";"));
+        }
         footer.update(t, tabs, app.allTabs(), app.ram == null ? 0 : app.ram.selfBytes);
+    }
+
+    /** What the tab list shows, as one string: when it is the same as last time the list need not be redrawn. */
+    String rowsShown() {
+        var s = new StringBuilder().append(firstNumber()).append('\n');
+        for (var x : tabs) {
+            s.append(x.separator ? 'S' : 'T').append(x.separator ? x.shown() : "").append('\u0001').append(x.where()).append('\u0001').append(x.live())
+                    .append('\u0001').append(x.live() ? x.ramBytes >> 20 : 0).append('\u0001').append(x.color.get()).append('\u0001')
+                    .append(x.collapsed).append(x.hibernating).append('\n');
+        }
+        return s.toString();
+    }
+
+    String lastRows, lastFrame;
+    /** A title or RAM change asks for a refresh through this: many changes a second become a few redraws. */
+    final javafx.animation.PauseTransition soon = new javafx.animation.PauseTransition(javafx.util.Duration.millis(300));
+
+    void refreshSoon() {
+        if (soon.getStatus() != javafx.animation.Animation.Status.RUNNING) soon.playFromStart();
     }
 
     /** A row dragged onto row `row` of this window, before it or after it: the list order the user sees, with the
@@ -556,6 +609,21 @@ public final class TabsWindow {
         tabs.remove(head);
         refresh();
         focusSoon();
+    }
+
+    /** The colour a row shows: its own, else for a tab the colour of the label it sits under (null for none). */
+    String colourOf(TerminalTab t) {
+        if (t == null) return null;
+        var own = t.color.get();
+        if (own != null || t.separator) return own;
+        var head = headOf(t);
+        return head == null ? null : head.color.get();
+    }
+
+    /** Colours the label and every tab under it alike: the tabs' own colours go, so they follow the label. */
+    void colourGroup(TerminalTab head, String hex) {
+        for (var x : group(head)) x.color.set(x == head ? hex : null);
+        refresh();
     }
 
     /** A separator is the head of a group: it and the tabs under it, down to the next separator. */

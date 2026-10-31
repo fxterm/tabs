@@ -2,6 +2,9 @@ package fxterm.tabs;
 
 import module java.base;
 import com.techsenger.jeditermfx.core.model.hyperlinks.*;
+import com.techsenger.jeditermfx.ui.hyperlinks.LinkInfoEx;
+import javafx.geometry.Rectangle2D;
+import javafx.scene.canvas.Canvas;
 
 /** Finds what can be clicked in a line of terminal text: web links, and Windows paths (C:\..., \\server\share\...).
  *  A click opens a link in the browser, a file with its program, a folder in Explorer. Nothing is checked on disk
@@ -13,20 +16,47 @@ public final class Links implements HyperlinkFilter {
      *  it too, so a path with spaces is found up to its first space only. */
     static final Pattern PATH = Pattern.compile("(?<![\\w/\\\\])(?:[A-Za-z]:\\\\|\\\\\\\\[\\w.$-]+\\\\)[^\\s\"'`<>|*?]*");
 
+    final boolean hover;
+
+    /** @param hover whether resting the mouse on a link offers to copy it */
+    Links(boolean hover) {
+        this.hover = hover;
+    }
+
+    Links() {
+        this(false);
+    }
+
+    /** The link: a click opens it, and when hover is on, resting the mouse on it offers Copy. */
+    LinkInfo info(String target) {
+        if (!hover) return new LinkInfo(() -> open(target));
+        return new LinkInfoEx.Builder().setNavigateCallback(() -> open(target)).setHoverConsumer(new LinkInfoEx.HoverConsumer() {
+            @Override
+            public void onMouseEntered(Canvas host, Rectangle2D bounds) {
+                LinkPopup.entered(target, host, bounds);
+            }
+
+            @Override
+            public void onMouseExited() {
+                LinkPopup.exited();
+            }
+        }).build();
+    }
+
     @Override
     public LinkResult apply(String line) {
         var items = new ArrayList<LinkResultItem>();
         var m = URL.matcher(line);
         while (m.find()) {
             var url = trimEnd(m.group());
-            items.add(new LinkResultItem(m.start(), m.start() + url.length(), new LinkInfo(() -> open(url))));
+            items.add(new LinkResultItem(m.start(), m.start() + url.length(), info(url)));
         }
         if (line.contains(":\\") || line.contains("\\\\")) {
             var p = PATH.matcher(line);
             while (p.find()) {
                 var path = trimEnd(p.group());
                 if (path.length() < 4 || overlaps(items, p.start())) continue;
-                items.add(new LinkResultItem(p.start(), p.start() + path.length(), new LinkInfo(() -> open(path))));
+                items.add(new LinkResultItem(p.start(), p.start() + path.length(), info(path)));
             }
         }
         return items.isEmpty() ? null : new LinkResult(items);

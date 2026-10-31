@@ -31,6 +31,26 @@ public final class TerminalTab {
     boolean separator;
     /** A separator's group folded away, as a tree node: its tabs are not shown, and it still moves as one. */
     boolean collapsed;
+    /** The symbol the program's title started with last time, and when it last changed: a program that is working
+     *  keeps changing it (a spinner), one that waits leaves it alone. */
+    String lastGlyph;
+    long glyphChangedAt;
+
+    /** Called with every new title. */
+    void noteTitle(String now) {
+        var m = TabCell.GLYPH.matcher(now);
+        var glyph = m.matches() ? m.group(1) : null;
+        if (glyph != null && !glyph.equals(lastGlyph)) glyphChangedAt = System.nanoTime();
+        lastGlyph = glyph;
+    }
+
+    /** True while the title's symbol is changing: the program is animating, so working. */
+    boolean busy() {
+        return lastGlyph != null && System.nanoTime() - glyphChangedAt < 1_500_000_000L;
+    }
+
+    /** Hibernate was asked for and is being saved (reading claude's flags can take seconds on a loaded machine). */
+    boolean hibernating;
     /** Restored from a tab that was the shown one when Tabs closed. */
     boolean wasSelected;
     /** The window holding it now; changes when the tab is moved to another window. */
@@ -81,6 +101,7 @@ public final class TerminalTab {
         if (s.separator) {
             var sep = separator(o, theme, s.customTitle != null ? s.customTitle : s.title);
             sep.collapsed = s.collapsed;
+            sep.color.set(s.color);
             return sep;
         }
         var restoredSelected = s.selected;
@@ -133,7 +154,7 @@ public final class TerminalTab {
         connector = new PtyConnector(argv, cwd, 120, 30);
         widget.setTtyConnector(connector);
         widget.getTerminalPanel().setTitleListener(t -> { if (!t.isBlank()) title.set(t); });
-        widget.addHyperlinkFilter(new Links());
+        widget.addHyperlinkFilter(new Links(true));
         widget.getTerminalPanel().setSelectionListener((x, y) -> { if (owner != null) owner.selectionPopup(this, x, y); });
         widget.start();
         var started = connector;
@@ -157,6 +178,7 @@ public final class TerminalTab {
             s.title = shown();
             s.customTitle = shown();
             s.collapsed = collapsed;
+            s.color = color.get();
             return s;
         }
         if (sleeping != null) return decorate(sleeping);

@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.github.fxterm</groupId>
         <artifactId>fxterm-tabs-parent</artifactId>
-        <version>0.1.2</version>
+        <version>0.1.3</version>
     </parent>
     <artifactId>fxterm-tabs</artifactId>
 
@@ -65,10 +65,21 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- the Windows exe (jr): runs the shaded jar in its own process, named fxterm-tabs. mvn package gives
-                 target/jr/fxterm-tabs.exe for this machine; mvn -Djr.source=url package gives the release in
-                 target/jr/release (the exe fetches its jar from the GitHub release, checked by SHA-256, and
-                 -Xjr:update moves it to the next one) -->
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- The Windows exe (jr): runs the jar in its own process, named fxterm-tabs. Only the release builds it
+             (release.ps1: -Pjrexe -Djr.source=url, in a clean clone), and the exe it makes fetches its jar from
+             the GitHub release, checked by SHA-256; -Xjr:update moves it to the next release.
+             An ordinary mvn package must NOT build it: that exe carries the RELEASED jar, not the build, and one
+             left in app/target/jr was found and launched by a search tool on 2026-10-31, so a restart came back
+             on the previous release instead of the newest build. The exe to run on this machine is the one
+             in dist, which runs dist/fxterm-tabs.jar. -->
+        <profile>
+            <id>jrexe</id>
+            <build>
+                <plugins>
             <plugin>
                 <groupId>io.github.jarrunner</groupId>
                 <artifactId>jr-maven-plugin</artifactId>
@@ -109,6 +120,8 @@
                     <supportUrl>https://github.com/fxterm/tabs</supportUrl>
                 </configuration>
             </plugin>
-        </plugins>
-    </build>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

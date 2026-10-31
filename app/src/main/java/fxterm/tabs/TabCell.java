@@ -39,7 +39,13 @@ public final class TabCell extends ListCell<TerminalTab> {
         close.setFocusTraversable(false);
         close.visibleProperty().bind(hoverProperty());
         close.setOnAction(e -> { if (getItem() != null) side.app.requestClose(getItem()); });
-        var text = new VBox(-1, name, sub, path);
+        // the animated symbol programs put at the front of their title (claude's stars, braille dots, | / - \) is not
+        // shown as text: its frames differ in width and baseline and the name beside it twitched. A drawn mark of
+        // one fixed size stands in for it (see ActivityMark).
+        HBox.setHgrow(name, Priority.ALWAYS);
+        var nameRow = new HBox(2, activity, name);
+        nameRow.setAlignment(Pos.CENTER_LEFT);
+        var text = new VBox(-1, nameRow, sub, path);
         textBox = text;
         text.setMinWidth(0);
         HBox.setHgrow(text, Priority.ALWAYS);
@@ -67,7 +73,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         mark.setOnMouseEntered(e -> {
             var tab = getItem();
             if (tab == null || tab.separator) return;
-            sleepNow.setVisible(tab.live());
+            sleepNow.setVisible(tab.live() && !tab.hibernating);
             wakeNow.setVisible(!tab.live());
             state.setVisible(false);
         });
@@ -184,11 +190,10 @@ public final class TabCell extends ListCell<TerminalTab> {
         sub.setMaxWidth(Double.MAX_VALUE);
         path.setMaxWidth(Double.MAX_VALUE);
         sepLabel.setStyle("-fx-text-fill: " + t.colors.get(4) + "; -fx-font-size: 11.5; -fx-font-weight: bold;");
-        var line = new Region();
-        line.setStyle("-fx-background-color: " + Ui.shade(t.background, 40) + "; -fx-min-height: 1; -fx-max-height: 1; -fx-pref-height: 1;");
-        HBox.setHgrow(line, Priority.ALWAYS);
+        sepLine.setStyle("-fx-background-color: " + Ui.shade(t.background, 40) + "; -fx-min-height: 1; -fx-max-height: 1; -fx-pref-height: 1;");
+        HBox.setHgrow(sepLine, Priority.ALWAYS);
         arrow.setStyle("-fx-text-fill: " + t.colors.get(4) + "; -fx-font-size: 12; -fx-min-width: 12;");
-        sepRow = new HBox(6, arrow, sepLabel, line);
+        sepRow = new HBox(6, arrow, sepLabel, sepLine);
         sepRow.setAlignment(Pos.CENTER_LEFT);
         // a click on a label (not the end of a drag) folds or unfolds its group
         setOnMouseClicked(e -> {
@@ -204,8 +209,14 @@ public final class TabCell extends ListCell<TerminalTab> {
     protected void updateItem(TerminalTab t, boolean empty) {
         super.updateItem(t, empty);
         setText(null);
+        // a row that no longer shows a tab (empty, or a group label) lets go of the last tab's title
+        if (empty || t == null || t.separator) {
+            name.textProperty().unbind();
+            activity.show(null, Color.WHITE, Color.WHITE);
+        }
         // the drop line belongs to a drag in progress; a row reused for another tab must not carry it along
-        if (dragged == null) setBorder(null);
+        // (only when there is one: setting it, even to the same null, replaces the row's CSS side bar for a moment)
+        if (dragged == null && getBorder() != null && getBorder().getStrokes().stream().anyMatch(s -> s.getWidths().getTop() == 3)) setBorder(null);
         if (empty || t == null) {
             setGraphic(null);
             setTooltip(null);
@@ -228,6 +239,12 @@ public final class TabCell extends ListCell<TerminalTab> {
         if (t.separator) {
             // an arrow, the label (with how many tabs it holds while folded), a line after it
             var inside = side.app.group(t).size() - 1;
+            // the label, its arrow and its line take the group's colour, which the tabs under it wear as their side bar
+            var group = t.color.get() != null ? t.color.get() : side.theme.colors.get(4);
+            sepLabel.setStyle("-fx-text-fill: " + group + "; -fx-font-size: 11.5; -fx-font-weight: bold;");
+            arrow.setStyle("-fx-text-fill: " + group + "; -fx-font-size: 12; -fx-min-width: 12;");
+            sepLine.setStyle("-fx-background-color: " + (t.color.get() != null ? group : Ui.shade(side.theme.background, 40))
+                    + "; -fx-min-height: 1; -fx-max-height: 1; -fx-pref-height: 1;");
             arrow.setText(t.collapsed ? "▸" : "▾");
             sepLabel.setText(t.shown().toUpperCase(Locale.ROOT) + (t.collapsed ? "  (" + inside + ")" : ""));
             setTooltip(sepTip);
@@ -243,20 +260,32 @@ public final class TabCell extends ListCell<TerminalTab> {
         setPrefHeight(Sidebar.ROW);
         setMinHeight(Sidebar.ROW);
         setMaxHeight(Sidebar.ROW);
-        // numbered among real tabs only, as Ctrl/Alt+number counts them
-        var n = 1;
+        // numbered among real tabs only, as Ctrl/Alt+number counts them, and straight on from the windows before this one
+        var n = side.app.firstNumber();
         for (var i = 0; i < getIndex() && i < getListView().getItems().size(); i++) if (!getListView().getItems().get(i).separator) n++;
         number.setText(String.valueOf(n));
         var icon = ProjectIcon.of(t.where());
         project.setImage(icon);
         project.setVisible(icon != null);
         project.setManaged(icon != null);
-        name.setText(t.shown());
+        // the name follows the tab's title by itself: a title a program rewrites ten times a second changes this one
+        // label and nothing else, with no redraw of the list
+        name.textProperty().unbind();
+        name.textProperty().bind(javafx.beans.binding.Bindings.createStringBinding(() -> plain(t.shown()), t.title, t.custom));
+        var hasGlyph = javafx.beans.binding.Bindings.createBooleanBinding(() -> glyphOf(t.shown()) == 1, t.title, t.custom);
+        activity.visibleProperty().unbind();
+        activity.managedProperty().unbind();
+        activity.visibleProperty().bind(hasGlyph);
+        activity.managedProperty().bind(hasGlyph);
         var where = t.where();
         var folder = Path.of(where).getFileName();
         sub.setText(folder == null ? where : folder.toString());
         path.setText(where);
-        if (t.live()) {
+        if (t.hibernating) {
+            state.setGraphic(null);
+            state.setText("Zz…");
+            state.setStyle("-fx-background-color: " + side.theme.colors.get(6) + "; " + ramStyle + " -fx-padding: 0 3 0 3; -fx-background-radius: 3;");
+        } else if (t.live()) {
             state.setGraphic(null);
             state.setText(t.ramBytes > 0 ? shortMb(t.ramBytes) : "");
             state.setStyle(t.ramBytes > 0 ? ramBadge(t) : "");
@@ -267,11 +296,11 @@ public final class TabCell extends ListCell<TerminalTab> {
             state.setGraphic(moon);
         }
         var ram = t.live() ? Mem.mb(t.ramBytes) : "asleep";
-        tip.setText(t.shown() + "\n" + where + "\n" + (t.live() ? "RAM: " + ram + " (shell and the program it runs)" : "Asleep: no process; Enter restores it"));
+        tip.setText(plain(t.shown()) + "\n" + where + "\n" + (t.live() ? "RAM: " + ram + " (shell and the program it runs)" : "Asleep: no process; Enter restores it"));
         setTooltip(tip);
         setContextMenu(null);
         setGraphic(row);
-        paint(isSelected(), t.color.get());
+        paint(isSelected(), side.app.colourOf(t));
     }
 
     /** The row's fill, and text that stays readable on it. */
@@ -292,11 +321,29 @@ public final class TabCell extends ListCell<TerminalTab> {
         var fg = selected ? Ui.textOn(Ui.frame(t, colour)) : colour != null && Ui.fullColour ? Ui.shade(t.foreground, 20) : t.foreground;
         number.setStyle("-fx-text-fill: " + (selected ? fg : "#ffffff") + "; -fx-font-size: 13; -fx-font-weight: bold;");
         name.setStyle("-fx-text-fill: " + fg + "; -fx-font-size: 15; -fx-font-weight: bold;");
+        activity.show(getItem(), Color.web(fg), Color.web(side.theme.colors.get(4)));
         sub.setStyle("-fx-text-fill: " + fg + "; -fx-opacity: " + (selected ? 0.9 : 0.75) + "; -fx-font-size: 12;");
         path.setStyle("-fx-text-fill: " + fg + "; -fx-opacity: " + (selected ? 0.75 : 0.55) + "; -fx-font-size: 10.5;");
     }
 
     final String ramStyle;
+    final ActivityMark activity = new ActivityMark();
+
+    /** Whether the title starts with a program's symbol (1) or not (0): the only thing about it the row shows. */
+    static int glyphOf(String title) {
+        return GLYPH.matcher(title).matches() ? 1 : 0;
+    }
+
+    /** The title without the symbol claude puts first. */
+    static String plain(String title) {
+        var m = GLYPH.matcher(title);
+        return m.matches() ? m.group(2) : title;
+    }
+    /** A symbol, then the name: the spinner and status marks programs put first. The known families: claude's
+     *  (· ✢ ✳ ✶ ✻ ✽), braille dots (npm, pip, ora, cargo: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ and ⣾⣽⣻⢿⡿⣟⣯⣷), the quarter circles and
+     *  circle halves (◐◓◑◒ ◴◷◶◵ ◜◠◝◞◡◟), the arrows (←↖↑↗→↘↓↙), the block bars (▖▘▝▗ ▁▃▄▅▆▇), the star and dingbat
+     *  runs, and the plain ASCII wheel | / - \ (and *). */
+    static final Pattern GLYPH = Pattern.compile("^([\\p{So}\\p{Sm}\\u00B7\\u2190-\\u21FF\\u2580-\\u259F\\u25A0-\\u25FF\\u2800-\\u28FF\\u2700-\\u27BF*|/\\\\-])\\s+(.+)$", Pattern.DOTALL);
 
     /** The RAM on a coloured pill: blue under 100 MB, yellow from 100, orange from 200; the tab using the most, once
      *  past 100 MB, red with a glow, so the heavy one stands out. */
@@ -327,6 +374,7 @@ public final class TabCell extends ListCell<TerminalTab> {
 
     ContextMenu openMenu;
     final Label sepLabel = new Label(), arrow = new Label();
+    final Region sepLine = new Region();
     final Tooltip sepTip = new Tooltip();
     final HBox sepRow;
 
@@ -334,6 +382,6 @@ public final class TabCell extends ListCell<TerminalTab> {
     public void updateSelected(boolean selected) {
         super.updateSelected(selected);
         if (getItem() != null && getItem().separator) return;
-        paint(selected && !isEmpty(), isEmpty() || getItem() == null ? null : getItem().color.get());
+        paint(selected && !isEmpty(), isEmpty() || getItem() == null ? null : side.app.colourOf(getItem()));
     }
 }

@@ -65,21 +65,17 @@
                     </execution>
                 </executions>
             </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <!-- The Windows exe (jr): runs the jar in its own process, named fxterm-tabs. Only the release builds it
-             (release.ps1: -Pjrexe -Djr.source=url, in a clean clone), and the exe it makes fetches its jar from
-             the GitHub release, checked by SHA-256; -Xjr:update moves it to the next release.
-             An ordinary mvn package must NOT build it: that exe carries the RELEASED jar, not the build, and one
-             left in app/target/jr was found and launched by a search tool on 2026-10-31, so a restart came back
-             on the previous release instead of the newest build. The exe to run on this machine is the one
-             in dist, which runs dist/fxterm-tabs.jar. -->
-        <profile>
-            <id>jrexe</id>
-            <build>
-                <plugins>
+            <!-- The Windows exe (jr): runs the jar in its own process, named fxterm-tabs. Two modes, same config:
+                 - an ordinary build (mvn verify): source=path. The exe runs dist/fxterm-tabs.jar as it is (jr does
+                   not hash a path source), so deploying a newer local build is copying a jar and an exe into dist
+                   (restart.cmd). It keeps updateUrl, so when GitHub really has a newer release than this build
+                   (Tabs' own UpdateCheck.newer decides, by number) one click in the footer updates it in place.
+                   The pom version runs ahead of the last release, which is what keeps GitHub from downgrading it.
+                 - the release (release.ps1: -Djr.source=url, in a clean clone): the exe fetches its jar from the
+                   GitHub release, checked by SHA-256, and -Xjr:update moves it to the next release.
+                 jr itself compares by position in the update file, not by number: an exe whose version is not in
+                 the file is told to update, so -Xjr:update typed by hand on a local build WOULD replace it with the
+                 release. -->
             <plugin>
                 <groupId>io.github.jarrunner</groupId>
                 <artifactId>jr-maven-plugin</artifactId>
@@ -93,6 +89,7 @@
                 </executions>
                 <configuration>
                     <jar>${project.basedir}/../shade/${shade.name}.jar</jar>
+                    <jarPath>${project.basedir}/../dist/${shade.name}.jar</jarPath>
                     <icon>${project.basedir}/fxterm-tabs.ico</icon>
                     <fileDescription>Tabs (FxTerminalTabs)</fileDescription>
                     <productName>Tabs</productName>
@@ -120,8 +117,6 @@
                     <supportUrl>https://github.com/fxterm/tabs</supportUrl>
                 </configuration>
             </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
+        </plugins>
+    </build>
 </project>

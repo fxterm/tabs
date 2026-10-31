@@ -5,11 +5,12 @@
 #
 # What it does and why:
 #  - HEAD must be pushed, so a release always matches a public commit (uncommitted edits here are left out).
-#  - The build runs in a fresh CLONE under %TEMP%, not here. Here the running Tabs holds its exe, and an exe left
-#    under app/target/jr would be found by a search tool and launched, running the RELEASED jar instead of the
-#    newest build (it happened on 2026-10-31). In the clone nothing of this machine's own is picked up either.
-#  - -Pjrexe -Djr.source=url: jr-maven-plugin builds fxterm-tabs.exe with the sha256 of exactly that jar and its
-#    release url baked in, and writes the release folder (exe, jar, SHA256SUMS, version.txt, update file).
+#  - The build runs in a fresh CLONE under %TEMP%, not here. A release exe built in this tree (app/target/jr) would
+#    be found by a search tool and launched, running the RELEASED jar instead of the newest build (it happened on
+#    2026-10-31, after the 0.1.2 release was built in place). In the clone nothing of this machine's own is picked up.
+#  - -Djr.source=url (the plugin's default is a local path source): jr-maven-plugin builds fxterm-tabs.exe with the
+#    sha256 of exactly that jar and its release url baked in, and writes the release folder (exe, jar, SHA256SUMS,
+#    version.txt, update file).
 #  - After publishing, every asset is downloaded from its public url and its SHA-256 compared with the build's.
 #    GitHub has served an asset with HTTP 500 right after upload before (cfucli 0.5.1), so look, do not assume.
 #  - The update file is itself a release asset (releases/latest/download/fxterm-tabs.update.json); there is no site copy.
@@ -47,7 +48,7 @@ Write-Host "building $tag in $work"
 for ($i = 1; $i -le 4; $i++) {
     # the network here drops connections mid-download often enough that one retry is not enough
     # quoted: Windows PowerShell 5.1 splits an unquoted -Djr.source=url at the dot into two arguments
-    & $mvn '-q' '-B' '-DskipTests' '-f' (Join-Path $work 'pom.xml') '-Pjrexe' '-Djr.source=url' 'clean' 'verify'
+    & $mvn '-q' '-B' '-DskipTests' '-f' (Join-Path $work 'pom.xml') '-Djr.source=url' 'clean' 'verify'
     if ($LASTEXITCODE -eq 0) { break }
     if ($i -eq 4) { throw 'mvn failed' }
     Write-Host "build attempt $i failed, retrying"
@@ -64,7 +65,7 @@ New-Item -ItemType Directory -Path $all | Out-Null
 Copy-Item (Join-Path $out '*') $all
 foreach ($m in @(@('mac-aarch64', 'arm64'), @('mac', 'x86_64'))) {
     for ($i = 1; $i -le 4; $i++) {
-        & $mvn '-q' '-B' '-DskipTests' '-f' (Join-Path $work 'pom.xml') '-Pjrexe' "-P$($m[0])" '-Djr.platforms=macos' "-Djr.macosArchitecture=$($m[1])" '-Djr.source=url' "-Djr.updateMergeFrom=$(Join-Path $all 'fxterm-tabs.update.json')" 'verify'
+        & $mvn '-q' '-B' '-DskipTests' '-f' (Join-Path $work 'pom.xml') "-P$($m[0])" '-Djr.platforms=macos' "-Djr.macosArchitecture=$($m[1])" '-Djr.source=url' "-Djr.updateMergeFrom=$(Join-Path $all 'fxterm-tabs.update.json')" 'verify'
         if ($LASTEXITCODE -eq 0) { break }
         if ($i -eq 4) { throw "mvn failed for $($m[0])" }
         Write-Host "build attempt $i for $($m[0]) failed, retrying"

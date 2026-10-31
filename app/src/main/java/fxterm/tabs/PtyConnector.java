@@ -25,6 +25,7 @@ public final class PtyConnector implements TtyConnector {
     static synchronized Set<String> userDefined() {
         if (userDefined != null) return userDefined;
         var names = new HashSet<String>();
+        if (!Os.WIN) return userDefined = names;
         for (var key : List.of("HKCU\\Environment", "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment")) {
             try {
                 var p = new ProcessBuilder("reg", "query", key).redirectErrorStream(true).start();
@@ -54,6 +55,10 @@ public final class PtyConnector implements TtyConnector {
     PtyConnector(List<String> argv, String cwd, int columns, int rows) throws IOException {
         var env = new HashMap<>(System.getenv());
         env.put("TERM", "xterm-256color");
+        if (!Os.WIN) {
+            env.put("COLORTERM", "truecolor");
+            env.putIfAbsent("LANG", "en_US.UTF-8");
+        }
         env.keySet().removeIf(PtyConnector::inheritedFromClaude);
         if (!argv.isEmpty() && Path.of(argv.getFirst()).getFileName().toString().equalsIgnoreCase("cmd.exe"))
             env.put("PROMPT", CWD_PROMPT + env.getOrDefault("PROMPT", "$P$G").replaceFirst("^CLINK ", ""));
@@ -61,7 +66,7 @@ public final class PtyConnector implements TtyConnector {
         var dir = cwd != null && Files.isDirectory(Path.of(cwd)) ? cwd : System.getProperty("user.home");
         process = new PtyProcessBuilder().setCommand(argv.toArray(String[]::new)).setEnvironment(env)
                 .setDirectory(dir).setInitialColumns(columns).setInitialRows(rows)
-                .setConsole(false).setUseWinConPty(true).start();
+                .setConsole(false).setUseWinConPty(Os.WIN).start();
         reader = new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8);
     }
 

@@ -78,7 +78,7 @@ public final class TabsWindow {
         // a wheel notch is 40; a touchpad pinch sends many small deltas, so they are added up to a notch per step
         var wheel = new double[] {0};
         scene.addEventFilter(ScrollEvent.SCROLL, e -> {
-            if (!e.isControlDown() || e.getDeltaY() == 0 || !inside(e.getPickResult().getIntersectedNode(), content)) return;
+            if (!(Os.MAC ? e.isMetaDown() : e.isControlDown()) || e.getDeltaY() == 0 || !inside(e.getPickResult().getIntersectedNode(), content)) return;
             wheel[0] += e.getDeltaY();
             var steps = (int) (wheel[0] / 40);
             if (steps != 0) {
@@ -147,13 +147,14 @@ public final class TabsWindow {
 
     void keys(KeyEvent e) {
         hideSelectionPopup();
-        var ctrlShift = e.isControlDown() && e.isShiftDown() && !e.isAltDown();
-        var alt = e.isAltDown() && !e.isControlDown() && !e.isShiftDown();
-        var ctrlOnly = e.isControlDown() && !e.isAltDown() && !e.isShiftDown();
+        var mod = Os.MAC ? e.isMetaDown() : e.isControlDown();
+        var ctrlShift = mod && e.isShiftDown() && !e.isAltDown();
+        var alt = !Os.MAC && e.isAltDown() && !mod && !e.isShiftDown();
+        var ctrlOnly = mod && !e.isAltDown() && !e.isShiftDown();
         var code = e.getCode();
-        if (ctrlShift && code == KeyCode.T) add();
-        else if (ctrlShift && code == KeyCode.N) app.newWindow(null, Double.NaN, Double.NaN, this);
-        else if (ctrlShift && code == KeyCode.W) requestClose(selected());
+        if ((ctrlShift || Os.MAC && ctrlOnly) && code == KeyCode.T) add();
+        else if ((ctrlShift || Os.MAC && ctrlOnly) && code == KeyCode.N) app.newWindow(null, Double.NaN, Double.NaN, this);
+        else if ((ctrlShift || Os.MAC && ctrlOnly) && code == KeyCode.W) requestClose(selected());
         else if (ctrlShift && code == KeyCode.E) toggleCompose();
         else if (ctrlShift && code == KeyCode.H) { if (historyShown()) hideHistory(); else showHistory(); }
         else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
@@ -161,7 +162,7 @@ public final class TabsWindow {
         else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
         else if ((alt || ctrlOnly) && code.isDigitKey() && code != KeyCode.DIGIT0 && code != KeyCode.NUMPAD0)
             select(code.getCode() - (code.isKeypadKey() ? KeyCode.NUMPAD1 : KeyCode.DIGIT1).getCode());
-        else if (e.isControlDown() && !e.isAltDown() && (code == KeyCode.EQUALS || code == KeyCode.PLUS || code == KeyCode.ADD))app.fontSize(FontSize.get() + FontSize.STEP);
+        else if (mod && !e.isAltDown() && (code == KeyCode.EQUALS || code == KeyCode.PLUS || code == KeyCode.ADD))app.fontSize(FontSize.get() + FontSize.STEP);
         else if (ctrlOnly && (code == KeyCode.MINUS || code == KeyCode.SUBTRACT)) app.fontSize(FontSize.get() - FontSize.STEP);
         else if (ctrlOnly && (code == KeyCode.DIGIT0 || code == KeyCode.NUMPAD0)) app.fontSize(FontSize.base);
         else if (code == KeyCode.F11 &&!e.isControlDown() && !e.isAltDown() && !e.isShiftDown()) stage.setFullScreen(!stage.isFullScreen());

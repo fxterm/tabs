@@ -17,7 +17,7 @@ public final class Options {
     long benchWait = 20_000, benchGap = 150, benchPromptWait = 3_000, snapshotWait = 8_000, quitAfter = 0;
     double font = 0;
     boolean offscreen, benchExit, restore = true, wakeAll, testKeys, testWake, testWakeAll, testMenu, testCompose, testWindows, testSeparators, testOrder, testEsc, serve, checkUpdates, testRead, testRunning;
-    String shell = "cmd.exe", family = "Consolas", theme = "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd, testLook, testHistory, testFont, testSelect, demo, tabFill = "strip";
+    String shell = Os.shell(), family = Os.family(), theme = Os.MAC ? "vscode" : "tabby", benchLabel = "run", benchOut, benchPrompt, benchDump, state, snapshot, cwd, testLook, testHistory, testFont, testSelect, demo, tabFill = "strip";
 
     static Options parse(List<String> args) {
         var o = new Options();

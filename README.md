@@ -4,9 +4,9 @@
 
 Full name **FxTerminalTabs**; we simply call it **Tabs**. The project and its files are named `fxterm-tabs` (organisation [fxterm](https://fxterm.github.io)).
 
-A Windows terminal with vertical tabs, made for long sessions with AI coding agents such as Claude Code. Tabs sleep and wake like a browser's, every session can be found again in History, and several windows share one process. An idle window uses a few tens of MB.
+A terminal for Windows and macOS with vertical tabs, made for long sessions with AI coding agents such as Claude Code. Tabs sleep and wake like a browser's, every session can be found again in History, and several windows share one process. An idle window uses a few tens of MB.
 
-Status: 0.1, early releases. Windows only.
+Status: 0.1, early releases. Windows is the main platform; macOS (Apple silicon and Intel) is new in 0.1.4 and tested far less.
 
 ![Tabs with two groups of tabs; Claude Code has just answered a question about a small Java project](docs/screenshots/main.png)
 
@@ -72,6 +72,23 @@ Ctrl+= makes the text bigger, Ctrl+- smaller, and Ctrl+0 goes back to the defaul
 - Colours and font size are read from an existing Tabby configuration, so moving over looks the same.
 - Tabby-compatible command line: `fxterm-tabs open <dir>` opens a shell there, `fxterm-tabs run <command...>` opens a tab running a command. A second launch adds a tab to the running window.
 
+### On a Mac
+
+Install in Terminal (curl sets no download mark, so macOS does not block the file; a browser download would be blocked until you choose Open Anyway in System Settings, Privacy & Security):
+
+```
+curl -fLo /tmp/fxterm-tabs https://github.com/fxterm/tabs/releases/latest/download/fxterm-tabs-macos-$(uname -m) && chmod +x /tmp/fxterm-tabs && /tmp/fxterm-tabs -Xjr:install
+```
+
+That puts `Tabs.app` in `~/Applications` and a command `fxterm-tabs` in `~/.local/bin`; no administrator rights. It needs Java 25 (jr offers to download one if none is found). Update later with `fxterm-tabs -Xjr:update`; the footer says when a newer release exists.
+
+What differs from Windows:
+
+- The Command key does what Ctrl does on Windows: Cmd+T new tab, Cmd+N new window, Cmd+W close, Cmd+1..9 go to a tab, Cmd+= / Cmd+- / Cmd+0 font size, Cmd+Shift+E compose, Cmd+Shift+H history, Cmd+C / Cmd+V copy and paste. Ctrl+Tab and Ctrl+Shift+Tab still step between tabs, and every Ctrl key goes to the program in the tab.
+- New tabs run your login shell (`$SHELL -l`, zsh by default). A tab that ran Claude Code wakes as `claude ... --resume <id>` inside a login shell, and drops back to a shell when claude ends.
+- The look is VS Code's terminal in its Dark Modern theme, in Menlo. `--theme tabby` uses an existing Tabby configuration instead (`~/Library/Application Support/tabby/config.yaml`).
+- Not on a Mac yet: dragging a tab out of the window into a new window, and clickable file paths (web links work).
+
 ## Keys
 
 - Ctrl+Shift+T new tab, Ctrl+Shift+N new window, Ctrl+Shift+W close tab
@@ -93,8 +110,9 @@ Settings and saved state live in `%USERPROFILE%\fxterm\tabs`: open tabs, window 
 ## Options
 
 - `--tab-fill strip|full` a tab's colour as the strip at its edge (the default), or filling the row and the frame
-- `--font N`, `--family NAME` the terminal font (Consolas by default)
-- `--shell CMD` the shell for new tabs (cmd.exe by default)
+- `--font N`, `--family NAME` the terminal font (Consolas on Windows, Menlo on a Mac)
+- `--theme tabby|vscode` colours from an existing Tabby configuration (the default on Windows), or VS Code's Dark Modern terminal (the default on a Mac)
+- `--shell CMD` the shell for new tabs (cmd.exe on Windows, your login shell on a Mac)
 - `--restore false` start with a fresh tab instead of the saved ones
 
 ## Build

@@ -14,6 +14,7 @@ public final class TitleBar {
     /** The native window becomes visible a moment after show(); try a few times until it is found. The call runs on
      *  the FX thread, which owns the window: made from another thread, Windows accepted it and drew nothing. */
     static void paintSoon(TabbyTheme theme) {
+        if (!Os.WIN) return;
         Thread.ofPlatform().daemon().start(() -> {
             for (var wait : new long[] {150, 400, 800, 1500}) {
                 try { Thread.sleep(wait); } catch (InterruptedException e) { return; }
@@ -70,6 +71,7 @@ public final class TitleBar {
     /** Where the mouse is now, in JavaFX screen units (Windows reports device pixels; the primary screen's scale turns
      *  them back). A drag that ended outside every window asks this to place the new window. */
     static double[] cursor() {
+        if (!Os.WIN) return null;
         try (var arena = Arena.ofConfined()) {
             var get = Linker.nativeLinker().downcallHandle(SymbolLookup.libraryLookup("user32", arena).find("GetCursorPos").orElseThrow(),
                     FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));

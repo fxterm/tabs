@@ -223,7 +223,8 @@ public final class Quote {
     static void edit(Path file) {
         var notepadfx = Path.of(System.getenv().getOrDefault("LOCALAPPDATA", ""), "Programs", "notepadfx", "notepadfx.exe");
         try {
-            new ProcessBuilder(Files.isExecutable(notepadfx) ? notepadfx.toString() : "notepad.exe", file.toString()).start();
+            if (!Os.WIN) new ProcessBuilder(Os.MAC ? List.of("open", "-t", file.toString()) : List.of("xdg-open", file.toString())).start();
+            else new ProcessBuilder(Files.isExecutable(notepadfx) ? notepadfx.toString() : "notepad.exe", file.toString()).start();
         } catch (IOException e) {
             System.err.println("fxterm-tabs: could not open " + file + ": " + e);
         }

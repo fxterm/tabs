@@ -44,7 +44,7 @@ public final class Sidebar {
         var plus = new Button("+");
         plus.setFocusTraversable(false);
         plus.setStyle(Ui.plus(theme));
-        plus.setTooltip(new Tooltip("New tab (Ctrl+Shift+T)"));
+        plus.setTooltip(new Tooltip(Os.keys("New tab (Ctrl+Shift+T)")));
         plus.setOnAction(e -> app.add());
         // beside +: a separator with a label, added at the end; drag it to where the group should start
         var separatorButton = new Button("⎯ label");

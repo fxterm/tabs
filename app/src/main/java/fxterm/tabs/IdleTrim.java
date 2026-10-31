@@ -39,6 +39,7 @@ public final class IdleTrim {
     }
 
     static Runnable trimmer() {
+        if (!Os.WIN) return () -> { };
         try {
             var linker = Linker.nativeLinker();
             var k32 = SymbolLookup.libraryLookup("kernel32", Arena.global());

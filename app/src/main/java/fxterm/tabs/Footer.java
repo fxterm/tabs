@@ -71,9 +71,9 @@ public final class Footer extends HBox {
         restoreAll = button("Restore all", theme.colors.get(4), "Wake every sleeping tab", app::wakeAll);
         copyText = button("Copy text", null, "Copy everything this tab shows and holds", app::copyText);
         paste = button("Paste", null, "Paste into this tab (also: right-click)", app::paste);
-        find = button("Find  Ctrl+F", null, "Search this tab's text", app::find);
-        compose = button("Compose  Ctrl+Shift+E", theme.colors.get(2), "Write in an editor, then send it to this tab", app::toggleCompose);
-        history = button("History  Ctrl+Shift+H", theme.colors.get(5), "Every saved session: search, read, copy, resume", app::showHistory);
+        find = button(Os.keys("Find  Ctrl+F"), null, "Search this tab's text", app::find);
+        compose = button(Os.keys("Compose  Ctrl+Shift+E"), theme.colors.get(2), "Write in an editor, then send it to this tab", app::toggleCompose);
+        history = button(Os.keys("History  Ctrl+Shift+H"), theme.colors.get(5), "Every saved session: search, read, copy, resume", app::showHistory);
         getChildren().addAll(all, self, update, recheck, where, readBar, restoreAll, copyText, paste, find, compose, history);
     }
 

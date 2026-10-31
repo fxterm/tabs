@@ -6,7 +6,7 @@ import module java.base;
  *  `terminal.colorScheme` block and `terminal.fontSize`; anything missing keeps the built-in dark palette. */
 public final class TabbyTheme {
 
-    static final Path CONFIG = Path.of(System.getenv().getOrDefault("APPDATA", ""), "tabby", "config.yaml");
+    static final Path CONFIG = Os.tabbyConfig();
 
     String name = "fxterm-tabs dark", foreground = "#e8eaf2", background = "#0f1324", cursor = "#e8eaf2";
     List<String> colors = new ArrayList<>(List.of(
@@ -14,7 +14,20 @@ public final class TabbyTheme {
             "#666666", "#f14c4c", "#23d18b", "#f5f543", "#3b8eea", "#d670d6", "#29b8db", "#ffffff"));
     double fontSize = 13.5;
 
+    /** VS Code's own terminal in its Dark Modern theme (what a new VS Code install shows): the panel colour behind the
+     *  text, #cccccc text, and the standard ANSI palette (the built-in colours here are that same palette). */
+    static TabbyTheme vscode() {
+        var t = new TabbyTheme();
+        t.name = "VS Code Dark Modern";
+        t.foreground = "#cccccc";
+        t.background = "#181818";
+        t.cursor = "#ffffff";
+        t.fontSize = 12;
+        return t;
+    }
+
     static TabbyTheme load(String which) {
+        if ("vscode".equals(which)) return vscode();
         var t = new TabbyTheme();
         if (!"tabby".equals(which) || !Files.isReadable(CONFIG)) return t;
         try {

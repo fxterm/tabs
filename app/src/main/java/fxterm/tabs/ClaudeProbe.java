@@ -20,7 +20,8 @@ public final class ClaudeProbe {
 
     static Optional<ClaudeProbe> of(long ptyPid) {
         return ProcessHandle.of(ptyPid).stream().flatMap(ProcessHandle::descendants)
-                .filter(p -> p.info().command().map(c -> c.toLowerCase().endsWith("claude.exe")).orElse(false))
+                .filter(p -> Os.WIN ? p.info().command().map(c -> c.toLowerCase().endsWith("claude.exe")).orElse(false)
+                        : Files.isReadable(SESSIONS.resolve(p.pid() + ".json")))
                 .findFirst().flatMap(p -> read(p.pid()));
     }
 
@@ -56,6 +57,14 @@ public final class ClaudeProbe {
      *  Windows, and one call per tab would take about a second each. */
     static Map<Long, String> commandLines() {
         var out = new HashMap<Long, String>();
+        if (!Os.WIN) {
+            // claude on a Mac is a versioned binary, not "claude": the processes with a session file are the claudes
+            for (var line : Os.out("ps", "-ww", "-Ao", "pid=,args=").split("\\R")) {
+                var m = Pattern.compile("^\\s*(\\d+)\\s+(.*)$").matcher(line);
+                if (m.matches() && Files.isReadable(SESSIONS.resolve(m.group(1) + ".json"))) out.put(Long.parseLong(m.group(1)), m.group(2).strip());
+            }
+            return out;
+        }
         try {
             // encoded, because Java's Windows argument quoting mangles the nested quotes of a plain -Command
             var script = "Get-CimInstance Win32_Process -Filter \"Name='claude.exe'\" | ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }";

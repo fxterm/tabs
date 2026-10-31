@@ -30,6 +30,7 @@ public final class Hibernator {
     }
 
     static long freeMb() {
+        if (Os.MAC) return Os.freeMb();
         var os = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
         return os.getFreeMemorySize() / (1024 * 1024);
     }

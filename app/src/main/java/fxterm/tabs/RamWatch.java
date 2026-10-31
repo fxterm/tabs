@@ -35,6 +35,8 @@ public final class RamWatch {
             var c = t.connector;
             var bytes = c == null ? 0 : Mem.tab(c.process.pid());
             var probe = c == null ? Optional.<ClaudeProbe>empty() : ClaudeProbe.of(c.process.pid());
+            // a Mac shell does not report its folder in its prompt, so it is asked for
+            if (Os.MAC && c != null && c.process.isAlive()) c.promptCwd = Os.cwdOf(c.process.pid());
             var cwd = probe.map(p -> p.cwd).orElse(null);
             // remember each claude the tab runs, flags included (read once per new claude), so the tab can offer it
             // again after claude was ended with /exit and fxterm-tabs was restarted

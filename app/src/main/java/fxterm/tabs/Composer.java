@@ -103,7 +103,7 @@ public final class Composer extends VBox {
         for (var i = 0; i < writerBar.getChildren().size(); i++) if (writerBar.getChildren().get(i) instanceof Separator) separators.add(i);
         if (separators.size() >= 2) writerBar.getChildren().subList(separators.get(0), separators.get(1)).clear();
         getStylesheets().add(barCss());
-        var send = Footer.small("Send + Enter  Ctrl+Enter", "Type it into the tab and press Enter", () -> send(true));
+        var send = Footer.small(Os.keys("Send + Enter  Ctrl+Enter"), "Type it into the tab and press Enter", () -> send(true));
         Footer.tint(send, theme.colors.get(2));
         var type = Footer.small("Type only", "Type it into the tab without pressing Enter", () -> send(false));
         var close = Footer.small("Close  Esc", "Close the editor (the text stays for next time)", app::toggleCompose);
@@ -117,8 +117,8 @@ public final class Composer extends VBox {
         getChildren().setAll(tools, writerBar, editor, bar);
         // the writer's keys (as its bar shows them) and the box's own
         addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            var plain = !e.isControlDown() && !e.isAltDown() && !e.isShiftDown();
-            if (e.getCode() == KeyCode.ENTER && e.isControlDown()) send(true);
+            var plain = !e.isControlDown() && !e.isMetaDown() && !e.isAltDown() && !e.isShiftDown();
+            if (e.getCode() == KeyCode.ENTER && (e.isControlDown() || e.isMetaDown())) send(true);
             else if (e.getCode() == KeyCode.F3 && plain) writer.dictate();
             else if (e.getCode() == KeyCode.F7 && e.isShiftDown()) writer.nextIssue();
             else if (e.getCode() == KeyCode.ESCAPE) { if (!writer.stop()) app.toggleCompose(); }
@@ -159,7 +159,7 @@ public final class Composer extends VBox {
             var file = Quote.writeAndEdit(t, body);
             if (!app.bottom.getChildren().contains(this)) app.toggleCompose();
             setText("@" + file + " ");
-            hint.setText("Opened " + file.getFileName() + ". Save it there, then Ctrl+Enter sends @path to the tab.");
+            hint.setText(Os.keys("Opened " + file.getFileName() + ". Save it there, then Ctrl+Enter sends @path to the tab."));
         } catch (java.io.IOException e) {
             hint.setText("Could not write the reply file: " + e.getMessage());
         }

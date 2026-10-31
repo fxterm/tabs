@@ -53,7 +53,30 @@ for ($i = 1; $i -le 4; $i++) {
     Write-Host "build attempt $i failed, retrying"
 }
 $out = Join-Path $work 'app\target\jr\release'
-foreach ($f in @('fxterm-tabs.exe', 'fxterm-tabs.jar', 'version.txt', 'SHA256SUMS', 'fxterm-tabs.update.json')) {
+
+# Then one run per Mac architecture (as cfucli's release.ps1 does): JavaFX carries its natives per platform, so each
+# builds its own jar (fxterm-tabs-mac-aarch64.jar, fxterm-tabs-mac.jar) and the macOS binary that runs it
+# (fxterm-tabs-macos-arm64, fxterm-tabs-macos-x86_64), merging the update file of the run before, so the last one lists
+# Windows and both Macs under this version. Every run writes its own release folder, so they are gathered into one.
+# No 'clean': it would delete the folder of the run before.
+$all = Join-Path $work 'release-all'
+New-Item -ItemType Directory -Path $all | Out-Null
+Copy-Item (Join-Path $out '*') $all
+foreach ($m in @(@('mac-aarch64', 'arm64'), @('mac', 'x86_64'))) {
+    for ($i = 1; $i -le 4; $i++) {
+        & $mvn '-q' '-B' '-DskipTests' '-f' (Join-Path $work 'pom.xml') '-Pjrexe' "-P$($m[0])" '-Djr.platforms=macos' "-Djr.macosArchitecture=$($m[1])" '-Djr.source=url' "-Djr.updateMergeFrom=$(Join-Path $all 'fxterm-tabs.update.json')" 'verify'
+        if ($LASTEXITCODE -eq 0) { break }
+        if ($i -eq 4) { throw "mvn failed for $($m[0])" }
+        Write-Host "build attempt $i for $($m[0]) failed, retrying"
+    }
+    Copy-Item (Join-Path $out '*') $all -Force
+}
+$out = $all
+# SHA256SUMS over everything gathered (each run wrote one for its own files only); the update file is not an asset.
+$sums = Get-ChildItem $out -File | Where-Object { $_.Name -notin @('SHA256SUMS', 'fxterm-tabs.update.json') } | Sort-Object Name |
+    ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
+[IO.File]::WriteAllText((Join-Path $out 'SHA256SUMS'), (($sums -join "`n") + "`n"))
+foreach ($f in @('fxterm-tabs.exe', 'fxterm-tabs.jar', 'fxterm-tabs-mac-aarch64.jar', 'fxterm-tabs-mac.jar', 'fxterm-tabs-macos-arm64', 'fxterm-tabs-macos-x86_64', 'version.txt', 'SHA256SUMS', 'fxterm-tabs.update.json')) {
     if (-not (Test-Path (Join-Path $out $f))) { throw "the release folder has no $f - see the jr output above" }
 }
 Get-ChildItem $out | ForEach-Object { Write-Host ('  {0,-28} {1,7:N1} MB' -f $_.Name, ($_.Length / 1MB)) }
@@ -61,7 +84,7 @@ if ($DryRun) { Write-Host "dry run - nothing published. Assets are in $out"; ret
 
 $notes = "Tabs $version`n`n"
 if ($Changes) { $notes += [IO.File]::ReadAllText((Resolve-Path $Changes).Path).Trim() + "`n`n" }
-$notes += "Windows only, needs Java 25. Existing release installs: fxterm-tabs.exe -Xjr:update"
+$notes += "Windows and macOS (Apple silicon and Intel), needs Java 25. Windows: download fxterm-tabs.exe and run it; existing installs: fxterm-tabs.exe -Xjr:update. Mac, in Terminal: curl -fLo /tmp/fxterm-tabs https://github.com/fxterm/tabs/releases/latest/download/fxterm-tabs-macos-`$(uname -m) && chmod +x /tmp/fxterm-tabs && /tmp/fxterm-tabs -Xjr:install ; later updates: fxterm-tabs -Xjr:update"
 # through a file: Windows PowerShell cuts a multi-line string passed to a native program at the first line break
 $notesFile = Join-Path $work 'release-notes.md'
 [IO.File]::WriteAllText($notesFile, $notes + "`n")

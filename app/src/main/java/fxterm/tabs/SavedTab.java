@@ -25,19 +25,34 @@ public final class SavedTab {
 
     static final int SCREEN_LINES = 1000;
 
-    static final Set<String> SHELLS = Set.of("cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe", "wsl.exe");
+    static final Set<String> SHELLS = Os.WIN ? Set.of("cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe", "wsl.exe")
+            : Set.of("zsh", "bash", "fish", "sh", "pwsh");
 
     boolean claude() {
         return claudeSessionId != null;
     }
 
-    /** cmd.exe stays the parent, as in a fresh tab, so leaving claude drops back to a prompt rather than closing it.
-     *  A plain tab gets its shell back, without whatever command it was started with. */
-    List<String> command() {
-        if (!claude()) return new ArrayList<>(List.of(shell != null ? shell : "cmd.exe"));
-        var argv = new ArrayList<>(List.of("cmd.exe", "/k", "claude"));
+    /** claude with its flags, resuming this session. */
+    List<String> claudeCommand() {
+        var argv = new ArrayList<>(List.of("claude"));
         argv.addAll(claudeArgs);
         argv.addAll(List.of("--resume", claudeSessionId));
+        return argv;
+    }
+
+    /** The shell stays the parent, as in a fresh tab, so leaving claude drops back to a prompt rather than closing it
+     *  (cmd /k on Windows; on a Mac a login shell runs claude, then replaces itself with an interactive one).
+     *  A plain tab gets its shell back, without whatever command it was started with. */
+    List<String> command() {
+        if (!Os.WIN) {
+            var sh = shell != null ? shell : Os.shellPath();
+            if (!claude()) return new ArrayList<>(List.of(sh, "-l"));
+            var line = claudeCommand().stream().map(Os::quote).collect(Collectors.joining(" "));
+            return new ArrayList<>(List.of(sh, "-l", "-i", "-c", line + "; exec " + Os.quote(sh) + " -l"));
+        }
+        if (!claude()) return new ArrayList<>(List.of(shell != null ? shell : "cmd.exe"));
+        var argv = new ArrayList<>(List.of("cmd.exe", "/k"));
+        argv.addAll(claudeCommand());
         return argv;
     }
 
@@ -50,7 +65,9 @@ public final class SavedTab {
      *  its shell. */
     String resumeLine() {
         var dir = cwd != null ? cwd : System.getProperty("user.home");
-        List<String> what = claude() ? command().subList(2, command().size()) : command();
+        if (!Os.WIN) return "cd " + Os.quote(dir) + " && " + (claude() ? claudeCommand() : List.of(shell != null ? shell : Os.shellPath()))
+                .stream().map(Os::quote).collect(Collectors.joining(" "));
+        List<String> what = claude() ? claudeCommand() : command();
         return "cd /d \"" + dir + "\" & " + what.stream().map(a -> a.contains(" ") ? "\"" + a + "\"" : a).collect(Collectors.joining(" "));
     }
 
@@ -58,6 +75,7 @@ public final class SavedTab {
     static String shellOf(List<String> argv) {
         if (argv.isEmpty()) return null;
         var exe = Path.of(argv.getFirst()).getFileName().toString().toLowerCase(Locale.ROOT);
+        if (!Os.WIN) return SHELLS.contains(exe) ? argv.getFirst() : null;
         if (!exe.endsWith(".exe")) exe += ".exe";
         return SHELLS.contains(exe) ? exe : null;
     }

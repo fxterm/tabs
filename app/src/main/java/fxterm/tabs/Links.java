@@ -83,7 +83,8 @@ public final class Links implements HyperlinkFilter {
     static void open(String target) {
         try {
             var dir = !target.contains("://") && Files.isDirectory(Path.of(target));
-            var argv = dir ? List.of("explorer.exe", target) : List.of("rundll32.exe", "url.dll,FileProtocolHandler", target);
+            var argv = !Os.WIN ? List.of(Os.MAC ? "open" : "xdg-open", target)
+                    : dir ? List.of("explorer.exe", target) : List.of("rundll32.exe", "url.dll,FileProtocolHandler", target);
             new ProcessBuilder(argv).start();
         } catch (Exception e) {
             System.err.println("fxterm-tabs: could not open " + target + ": " + e);

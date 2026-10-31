@@ -5,5 +5,8 @@ rem terminal): a shell inside one of its tabs ends when the window closes.
 taskkill /im fxterm-tabs.exe >nul 2>&1
 :wait
 tasklist /fi "imagename eq fxterm-tabs.exe" | find /i "fxterm-tabs.exe" >nul && (timeout /t 1 /nobreak >nul & goto wait)
-copy /y "%~dp0shade\fxterm-tabs.jar" "%~dp0dist\fxterm-tabs.jar" >nul
+rem An optional first argument names the jar to put in place (a release's, say); the default is the newest build.
+set "NEWJAR=%~1"
+if not defined NEWJAR set "NEWJAR=%~dp0shade\fxterm-tabs.jar"
+copy /y "%NEWJAR%" "%~dp0dist\fxterm-tabs.jar" >nul
 start "" "%~dp0dist\fxterm-tabs.exe"

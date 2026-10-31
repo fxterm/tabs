@@ -4,7 +4,7 @@
 #     .\release.ps1 -DryRun                        build and checksum only; show what would be published
 #
 # What it does and why:
-#  - The tracked files must be committed and HEAD pushed, so a release always matches a public commit.
+#  - HEAD must be pushed, so a release always matches a public commit (uncommitted edits here are left out).
 #  - The build runs in a fresh CLONE under %TEMP%, not here. Here the running Tabs holds its exe, and an exe left
 #    under app/target/jr would be found by a search tool and launched, running the RELEASED jar instead of the
 #    newest build (it happened on 2026-10-31). In the clone nothing of this machine's own is picked up either.
@@ -27,8 +27,7 @@ $version = ([xml](Get-Content pom.xml)).project.version
 $tag = "v$version"
 function Sha([string]$ref) { @(git rev-parse $ref) | Where-Object { $_ -match '^[0-9a-f]{40}$' } | Select-Object -Last 1 }
 
-$dirty = @(git status --porcelain --untracked-files=no) | Where-Object { $_ -match '^[ MADRCU?!]{2} ' }
-if ($dirty) { throw "tracked files are changed - commit first, so the release matches a public commit:`n$($dirty -join "`n")" }
+# Edits in this working tree do not matter: the build is a clone of HEAD, and HEAD must be the pushed commit.
 git fetch -q origin
 if ((Sha HEAD) -ne (Sha '@{u}')) { throw 'HEAD is not pushed - push first' }
 if (-not $DryRun) {

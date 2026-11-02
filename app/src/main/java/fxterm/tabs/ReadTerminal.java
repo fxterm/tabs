@@ -8,12 +8,12 @@ import speechfx.readaloud.*;
 
 /** Read aloud for the terminal: the selected text is spoken and the word being said is lit in the terminal itself,
  *  scrolling to keep it in sight. The voice engine is the speechfx one the editors use, and speed and voice are the
- *  same remembered choice (~/prosemirrorfx/writer/reading.json), so a voice picked in notepadfx is the voice here.
+ *  same remembered choice (~/prosefx/writer/reading.json), so a voice picked in notepadfx is the voice here.
  *  One reading at a time in the process. */
 public final class ReadTerminal implements SpeechListener {
 
     static final double MIN_RATE = 0.5, MAX_RATE = 3.0;
-    static final Path PREFS = Path.of(System.getProperty("user.home"), "prosemirrorfx", "writer", "reading.json");
+    static final Path PREFS = Path.of(System.getProperty("user.home"), "prosefx", "writer", "reading.json");
     static final Pattern RATE = Pattern.compile("\"rate\"\\s*:\\s*([0-9.]+)"), VOICE = Pattern.compile("\"voice\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
     static final String BOX = "│┃╭╮╰╯┌┐└┘─━═├┤┬┴┼║";
 

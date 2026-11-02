@@ -20,7 +20,7 @@
         <shade.name>fxterm-tabs</shade.name>
         <pty4j.version>0.12.25</pty4j.version>
         <javafx.version>26.0.2</javafx.version>
-        <prosemirrorfx.version>0.1.0-SNAPSHOT</prosemirrorfx.version>
+        <prosefx.version>0.1.0-SNAPSHOT</prosefx.version>
         <slf4j.version>2.0.18</slf4j.version>
         <jackson.version>2.21.2</jackson.version>
     </properties>
@@ -66,7 +66,7 @@
                 <exclusions><exclusion><groupId>org.openjfx</groupId><artifactId>*</artifactId></exclusion></exclusions>
             </dependency>
             <dependency>
-                <groupId>io.github.prosemirrorfx</groupId><artifactId>prosemirrorfx-writer</artifactId><version>${prosemirrorfx.version}</version>
+                <groupId>io.github.prosefx</groupId><artifactId>prosefx-writer</artifactId><version>${prosefx.version}</version>
                 <exclusions><exclusion><groupId>org.openjfx</groupId><artifactId>*</artifactId></exclusion></exclusions>
             </dependency>
             <dependency>

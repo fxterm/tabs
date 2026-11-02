@@ -5,10 +5,10 @@ import javafx.geometry.*;
 import javafx.scene.control.*;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
-import prosemirrorfx.view.embed.MarkdownEditor;
-import prosemirrorfx.writer.Writer;
+import prosefx.view.embed.MarkdownEditor;
+import prosefx.writer.Writer;
 
-/** The editor under the terminal: prosemirrorfx's Markdown editor in the terminal's own colours, with its formatting
+/** The editor under the terminal: prosefx's Markdown editor in the terminal's own colours, with its formatting
  *  toolbar and writer bar, so a reply can be typed, formatted, dictated (F3) and spell-checked before it goes to the
  *  shown tab as one paste. (Reading aloud is for the terminal's selection, in the selection bar, not here.)
  *  Ctrl+Enter sends and presses Enter, "Type only" sends without Enter, Esc stops reading or dictation, else closes.
@@ -31,7 +31,7 @@ public final class Composer extends VBox {
 
     /** The editor's colours taken from the terminal's, so the box is the terminal's own dark (or light) and not the
      *  editor's stock white: page, toolbar, hairlines, text and the accents. */
-    static prosemirrorfx.view.Theme editorTheme(TabbyTheme t) {
+    static prosefx.view.Theme editorTheme(TabbyTheme t) {
         var bg = t.background;
         var muted = Ui.mix(t.foreground, bg, 0.45);
         var tokens = new LinkedHashMap<String, String>();
@@ -53,7 +53,7 @@ public final class Composer extends VBox {
         tokens.put("number", muted);
         tokens.put("code-bg", Ui.shade(bg, 8));
         tokens.put("code-border", Ui.shade(bg, 28));
-        var theme = prosemirrorfx.view.Theme.DARK;
+        var theme = prosefx.view.Theme.DARK;
         for (var e : tokens.entrySet()) theme = theme.with(e.getKey(), e.getValue());
         return theme;
     }

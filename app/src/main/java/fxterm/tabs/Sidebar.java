@@ -28,6 +28,7 @@ public final class Sidebar {
     final ListView<TerminalTab> list;
     final VBox node;
     final HBox addButtons;
+    final Toolbar toolbar;
 
     Sidebar(TabsWindow app, ObservableList<TerminalTab> tabs, TabbyTheme theme) {
         this.app = app;
@@ -66,9 +67,10 @@ public final class Sidebar {
             }
             e.consume();
         });
-        node = new VBox(list, addButtons);
+        toolbar = new Toolbar(app, theme);
+        node = new VBox(toolbar, list, addButtons);
         node.setStyle(Ui.sidebar(theme));
-        node.setMinWidth(120);
+        node.setMinWidth(160);
         fit();
     }
 
@@ -167,6 +169,9 @@ public final class Sidebar {
         var fold = new MenuItem(t.collapsed ? "Show the group's tabs" : "Fold the group");
         fold.setOnAction(e -> app.toggleGroup(t));
         icon(fold, t.collapsed ? "▸" : "▾");
+        var hide = new MenuItem(t.hideAsleep ? "Show the group's hibernated tabs" : "Hide the group's hibernated tabs  (Ctrl+Shift+Z)");
+        hide.setOnAction(e -> app.toggleAsleep(t));
+        icon(hide, "Zz");
         // the label's colour is the colour of every tab under it
         var colour = colourMenu("Colour the group", hex -> app.colourGroup(t, hex));
         icon(colour, "◐");
@@ -182,7 +187,7 @@ public final class Sidebar {
         fresh.setOnAction(e -> app.app.moveGroupTo(app, t, null));
         moveTo.getItems().add(fresh);
         icon(moveTo, "↗");
-        return new ContextMenu(fold, rename, colour, moveTo, group, new SeparatorMenuItem(), remove);
+        return new ContextMenu(fold, hide, rename, colour, moveTo, group, new SeparatorMenuItem(), remove);
     }
 
     static void icon(MenuItem item, String glyph) {

@@ -12,6 +12,8 @@ public final class WindowState {
 
     public double x = Double.NaN, y = Double.NaN, width = 1200, height = 720, sidebar = 240;
     public boolean maximized;
+    /** The name the user gave the window (null: none) and its colour, a hex string (null: a free one is chosen). */
+    public String name, colour;
 
     static WindowState load() {
         try {
@@ -42,7 +44,12 @@ public final class WindowState {
     }
 
     static void saveAll(List<TabsWindow> windows) {
-        var all = windows.stream().map(w -> of(w.stage, w.sidebarWidth())).toList();
+        var all = windows.stream().map(w -> {
+            var s = of(w.stage, w.sidebarWidth());
+            s.name = w.name;
+            s.colour = w.colour;
+            return s;
+        }).toList();
         try {
             Files.createDirectories(FILE.getParent());
             JSON.writeValue(ALL.toFile(), all);

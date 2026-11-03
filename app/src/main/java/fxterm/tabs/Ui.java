@@ -45,7 +45,19 @@ public final class Ui {
                 + ".tabs-button:hover { -fx-background-color: " + shade(t.background, 28) + "; }\n"
                 + ".tabs-button:pressed { -fx-background-color: " + shade(t.background, 38) + "; }\n"
                 + ".tabs-button:disabled { -fx-opacity: 0.4; }\n"
-                + ".tabs-button.small { -fx-font-size: 10; -fx-padding: 1 6 1 6; -fx-background-radius: 4; -fx-border-radius: 4; }\n";
+                + ".tabs-button.small { -fx-font-size: 10; -fx-padding: 1 6 1 6; -fx-background-radius: 4; -fx-border-radius: 4; }\n"
+                // flat buttons (the footer's actions and the toolbar's icons): no frame, a soft square on hover
+                + ".flat-button, .icon-button { -fx-background-color: transparent; -fx-background-radius: 6; -fx-border-width: 0; -fx-cursor: hand;"
+                + " -fx-focus-color: transparent; -fx-faint-focus-color: transparent; }\n"
+                + ".flat-button { -fx-padding: 3 9 3 8; }\n"
+                + ".icon-button { -fx-padding: 5; }\n"
+                + ".flat-button .label { -fx-text-fill: " + mix(t.foreground, t.background, 0.2) + "; -fx-font-size: 11.5; }\n"
+                + ".flat-button .key { -fx-text-fill: " + mix(t.foreground, t.background, 0.62) + "; -fx-font-size: 10; }\n"
+                + ".flat-button:hover, .icon-button:hover { -fx-background-color: " + shade(t.background, 20) + "; }\n"
+                + ".flat-button:hover .label { -fx-text-fill: " + t.foreground + "; }\n"
+                + ".flat-button:pressed, .icon-button:pressed { -fx-background-color: " + shade(t.background, 32) + "; }\n"
+                + ".flat-button:disabled, .icon-button:disabled { -fx-opacity: 0.32; }\n"
+                + ".icon { -fx-background-color: " + mix(t.foreground, t.background, 0.38) + "; }\n";
         return "data:text/css;base64," + java.util.Base64.getEncoder().encodeToString(css.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
@@ -75,6 +87,15 @@ public final class Ui {
         var bar = colour != null ? colour : "transparent";
         var fill = colour != null ? mix(base, colour, 0.16) : base;
         return "-fx-padding: 3 2 3 4; -fx-border-width: 0 0 0 3; -fx-border-color: " + bar + "; -fx-background-color: " + fill + ";";
+    }
+
+    /** The amber a tab that is asking for the user wears: a warm tint over the row and a bar at its edge. Still, never
+     *  animated (an animated row shook the whole list once). */
+    static final String ASKING = "#f2a900";
+
+    static String cellAsking(TabbyTheme t, boolean selected) {
+        var fill = selected ? frame(t, null) : mix(shade(t.background, -10), ASKING, 0.22);
+        return "-fx-padding: 3 2 3 4; -fx-border-width: 0 0 0 4; -fx-border-color: " + ASKING + "; -fx-background-color: " + fill + ";";
     }
 
     /** The colour that joins the active tab to its terminal: the tab's own colour (toned down so white text stays

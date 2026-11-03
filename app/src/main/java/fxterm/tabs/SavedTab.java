@@ -13,6 +13,8 @@ public final class SavedTab {
     public boolean separator;
     /** A separator whose group was folded away. */
     public boolean collapsed;
+    /** A separator whose group hides its hibernated tabs. */
+    public boolean hideAsleep;
     /** The tab that was shown in its window when Tabs closed; shown again on the next start. */
     public boolean selected;
     /** Which window it was in (0 = the first). */

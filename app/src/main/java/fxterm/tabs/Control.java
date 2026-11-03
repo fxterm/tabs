@@ -32,6 +32,10 @@ public final class Control {
               window-new                             a new window with a fresh tab
               shot file=<png> [window=0]             a picture of a window
               key spec=meta+shift+e [window=0]       one key press to the window (ctrl, alt, shift, meta + a KeyCode name)
+              switcher [window=0] [step=1] [query=]  open the Ctrl+Tab popup, optionally with text typed in its box
+              switcher-shot file=<png>               a picture of the open popup;  switcher-close  closes it;  switcher-key spec=  a key to it
+              attention [on|off]                    a bell on the calling tab (run inside it): rings once, asks the user to switch to it; off takes it away
+              window-name [window=0] name=           name a window (empty: Window N);  window-colour [window=0] colour=#rrggbb
               events [n=20]                          the last events from the event log
             Ids come from `list`; they last while Tabs runs. Windows count from 0, tabs from 0 in list order.
             """;
@@ -60,6 +64,11 @@ public final class Control {
             return 0;
         }
         req.put("cmd", words.getFirst());
+        if (words.getFirst().equals("attention")) {
+            if (words.size() > 1) req.put("on", !words.get(1).equals("off"));
+            req.put("pid", ProcessHandle.current().pid());
+            if (System.getenv("CLAUDE_CODE_SESSION_ID") != null) req.put("session", System.getenv("CLAUDE_CODE_SESSION_ID"));
+        }
         try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(socket(state)))) {
             ch.write(ByteBuffer.wrap((JSON.writeValueAsString(req) + "\n").getBytes(StandardCharsets.UTF_8)));
             var reply = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
@@ -212,11 +221,35 @@ public final class Control {
                 if (t.collapsed != r.path("on").asBoolean(!t.collapsed)) t.owner.toggleGroup(t);
                 out.put("collapsed", t.collapsed);
             }
+            case "hideasleep" -> {
+                var t = tab(app, r);
+                if (!t.separator) throw new IllegalArgumentException("tab " + t.id + " is not a group label");
+                if (t.hideAsleep != r.path("on").asBoolean(!t.hideAsleep)) t.owner.toggleAsleep(t);
+                out.put("hideAsleep", t.hideAsleep);
+            }
             case "hibernate" -> { var t = tab(app, r); t.owner.hibernate(t); }
             case "wake" -> { var t = tab(app, r); t.owner.wake(t); }
             case "close" -> { var t = tab(app, r); t.owner.close(t); }
             case "window-new" -> out.put("window", app.windows.indexOf(app.newWindow(null, Double.NaN, Double.NaN, app.windows.getFirst())));
             case "shot" -> Snapshot.write(window(app, r).scene, need(r, "file"));
+            case "attention" -> {
+                var t = r.hasNonNull("id") ? tab(app, r) : caller(app, r);
+                t.asking = r.path("on").asBoolean(true);
+                app.attention.update(t);
+                t.owner.refresh();
+                out.put("id", t.id).put("attention", t.attention());
+            }
+            case "switcher" -> {
+                app.switcher.open(window(app, r), r.path("step").asInt(0));
+                if (r.hasNonNull("query")) app.switcher.filter.setText(r.get("query").asText());
+            }
+            case "switcher-shot" -> Snapshot.write(app.switcher.stage.getScene(), need(r, "file"));
+            case "attention-key" -> TestHooks.pressKeys(app.attention.shown.stage.getScene(), need(r, "spec"));
+            case "attention-shot" -> Snapshot.write(app.attention.shown.stage.getScene(), need(r, "file"));
+            case "switcher-close" -> app.switcher.close(true);
+            case "switcher-key" -> TestHooks.pressKeys(app.switcher.stage.getScene(), need(r, "spec"));
+            case "window-name" -> { var w = window(app, r); w.name = r.path("name").asText("").isBlank() ? null : r.get("name").asText(); w.look(); }
+            case "window-colour" -> { var w = window(app, r); w.colour = need(r, "colour"); w.look(); }
             case "key" -> TestHooks.pressKeys(window(app, r).scene, need(r, "spec"));
             case "events" -> {
                 try {
@@ -239,9 +272,9 @@ public final class Control {
             var tabs = wn.putArray("tabs");
             for (var t : w.tabs) {
                 var n = tabs.addObject().put("id", t.id).put("index", w.tabs.indexOf(t)).put("title", t.shown());
-                if (t.separator) { n.put("separator", true).put("collapsed", t.collapsed); continue; }
+                if (t.separator) { n.put("separator", true).put("collapsed", t.collapsed).put("hideAsleep", t.hideAsleep); continue; }
                 if (w.folded(t)) n.put("folded", true);
-                n.put("folder", t.where()).put("live", t.live()).put("selected", t == w.selected()).put("color", t.color.get());
+                n.put("folder", t.where()).put("live", t.live()).put("selected", t == w.selected()).put("color", t.color.get()).put("attention", t.attention());
                 if (t.live()) {
                     n.put("pid", t.connector.process.pid());
                     ClaudeProbe.of(t.connector.process.pid()).ifPresent(c -> n.putObject("claude").put("session", c.sessionId).put("status", c.status).put("name", c.name));
@@ -261,6 +294,19 @@ public final class Control {
         var id = need(r, "id");
         return app.allTabs().stream().filter(t -> t.id.equals(id)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("no tab " + id + " (fxterm-tabs ctl list)"));
+    }
+
+    /** The tab the caller runs in: the tab whose shell is an ancestor of the calling process, else the tab whose claude
+     *  session is the caller's CLAUDE_CODE_SESSION_ID. */
+    static TerminalTab caller(TabsApp app, JsonNode r) {
+        var shells = app.allTabs().stream().filter(t -> !t.separator && t.live()).collect(java.util.stream.Collectors.toMap(t -> t.connector.process.pid(), t -> t, (a, b) -> a));
+        for (var h = ProcessHandle.of(r.path("pid").asLong(0)); h.isPresent(); h = h.get().parent()) {
+            var t = shells.get(h.get().pid());
+            if (t != null) return t;
+        }
+        var session = r.path("session").asText("");
+        for (var t : shells.values()) if (!session.isEmpty() && ClaudeProbe.of(t.connector.process.pid()).map(c -> session.equals(c.sessionId)).orElse(false)) return t;
+        throw new IllegalArgumentException("no tab found for the caller: run it from inside a Tabs tab, or give id=");
     }
 
     static TerminalTab live(TabsApp app, JsonNode r) {

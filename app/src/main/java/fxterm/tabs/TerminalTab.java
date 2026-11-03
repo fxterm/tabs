@@ -31,6 +31,8 @@ public final class TerminalTab {
     boolean separator;
     /** A separator's group folded away, as a tree node: its tabs are not shown, and it still moves as one. */
     boolean collapsed;
+    /** A separator whose group hides its hibernated tabs (the live ones, and the shown one, stay in sight). */
+    boolean hideAsleep;
     /** The symbol the program's title started with last time, and when it last changed: a program that is working
      *  keeps changing it (a spinner), one that waits leaves it alone. */
     String lastGlyph;
@@ -47,6 +49,14 @@ public final class TerminalTab {
     /** True while the title's symbol is changing: the program is animating, so working. */
     boolean busy() {
         return lastGlyph != null && System.nanoTime() - glyphChangedAt < 1_500_000_000L;
+    }
+
+    /** Asking for the user: set by `ctl attention on` (a program in the tab, usually claude, is blocked on the user), or the
+     *  title starts with a bell or a warning mark. wasAttention is what Attention last acted on. */
+    boolean asking, wasAttention;
+
+    boolean attention() {
+        return asking || TabCell.attention(shown());
     }
 
     /** Hibernate was asked for and is being saved (reading claude's flags can take seconds on a loaded machine). */
@@ -101,6 +111,7 @@ public final class TerminalTab {
         if (s.separator) {
             var sep = separator(o, theme, s.customTitle != null ? s.customTitle : s.title);
             sep.collapsed = s.collapsed;
+            sep.hideAsleep = s.hideAsleep;
             sep.color.set(s.color);
             return sep;
         }
@@ -178,6 +189,7 @@ public final class TerminalTab {
             s.title = shown();
             s.customTitle = shown();
             s.collapsed = collapsed;
+            s.hideAsleep = hideAsleep;
             s.color = color.get();
             return s;
         }

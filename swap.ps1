@@ -5,10 +5,14 @@
 #   swap.ps1 -Jar <file> puts that jar in dist instead of shade\fxterm-tabs.jar (e.g. a downloaded release jar)
 #   swap.ps1 -Force      hibernates a claude that is waiting for an answer too (the question is lost; the session resumes)
 # A copy of the saved state is kept as session.before-swap-<time>.json in ~\fxterm\tabs.
-param([switch]$Force, [int]$CalmSeconds = 30, [int]$WaitMinutes = 8, [string]$Jar)
+#   swap.ps1 -Install <exe>  the window is the installed exe at that path (wherever you installed it), not dist\:
+#                        that exe is the one closed, replaced by the exe the build made (app\target\jr, which runs
+#                        dist\fxterm-tabs.jar) and started again, so the new build runs from the same place as before
+param([switch]$Force, [int]$CalmSeconds = 30, [int]$WaitMinutes = 8, [string]$Jar, [string]$Install)
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$exe = Join-Path $here 'dist\fxterm-tabs.exe'
+$exe = if ($Install) { (Resolve-Path $Install).Path } else { Join-Path $here 'dist\fxterm-tabs.exe' }
+$procName = [IO.Path]::GetFileNameWithoutExtension($exe)
 $state = Join-Path $HOME 'fxterm\tabs'
 function Ctl([string[]]$words) { (& $exe ctl @words) -join "`n" | ConvertFrom-Json }
 function Live() { (Ctl 'list').windows.tabs | Where-Object { -not $_.separator -and $_.live } }
@@ -47,7 +51,8 @@ public static class Swap {
     EnumWindows((h, l) => { uint p; GetWindowThreadProcessId(h, out p); if (p == pid) { var sb = new StringBuilder(256); GetWindowText(h, sb, 256); if (sb.ToString() == title) f = h; } return true; }, IntPtr.Zero); return f; }
 }
 '@
-$proc = Get-Process fxterm-tabs
+$proc = Get-Process $procName | Where-Object { $_.Path -eq $exe } | Select-Object -First 1
+if (-not $proc) { throw "no running $exe to close; nothing was swapped" }
 & taskkill /pid $proc.Id | Out-Null
 $until = (Get-Date).AddSeconds(120)
 while ((Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) -and (Get-Date) -lt $until) {
@@ -61,7 +66,9 @@ if (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) { throw "Tabs did no
 # 4. the new jar, and start
 $newJar = if ($Jar) { $Jar } else { Join-Path $here 'shade\fxterm-tabs.jar' }
 Copy-Item $newJar (Join-Path $here 'dist\fxterm-tabs.jar') -Force
-Start-Process $exe
+if ($Install) { Copy-Item (Join-Path $here 'app\target\jr\fxterm-tabs.exe') $exe -Force }
+# through Explorer, never as a child of this (claude) session: the new Tabs would inherit its environment (session id and all)
+Start-Process explorer.exe -ArgumentList "`"$exe`""
 $until = (Get-Date).AddSeconds(90); $after = $null
 while (-not $after -and (Get-Date) -lt $until) {
     Start-Sleep -Seconds 3

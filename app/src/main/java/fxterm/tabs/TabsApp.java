@@ -23,6 +23,20 @@ public final class TabsApp extends Application {
     volatile boolean restartAfterQuit;
     /** Where a tab from another launch (Tabby's open / run) goes. */
     TabsWindow lastFocused;
+    /** A tab asking for the user: rings once, asks whether to switch to it, switches by itself after 20 seconds. */
+    final Attention attention = new Attention(this);
+    /** Ctrl+Tab: the popup that goes to any tab of any window. */
+    final Switcher switcher = new Switcher(this);
+
+    /** A colour no open window wears, for a window that has none yet. */
+    String freeColour() {
+        return WindowLook.free(windows.stream().map(w -> w.colour).filter(Objects::nonNull).toList());
+    }
+
+    /** Writes every window's place, name and colour now (not only when Tabs closes), unless this is a test run. */
+    void saveWindows() {
+        if (!options.offscreen && options.state == null) WindowState.saveAll(windows);
+    }
 
     /** A short notice, for what a button asked for and could not do. */
     void message(String text) {
@@ -72,6 +86,7 @@ public final class TabsApp extends Application {
         // a test run (off-screen, or its own state file) does not go to the network unless asked to
         updates = new UpdateCheck(() -> windows.forEach(w -> w.footer.updateStatus(updates)));
         windows.forEach(w -> w.footer.updateStatus(updates));
+        JarWatch.start(() -> Platform.runLater(() -> windows.forEach(w -> w.footer.updateStatus(updates))));
         if (!options.offscreen && options.state == null || options.checkUpdates) updates.start();
         TestHooks.start(main, main.scene, options);
     }
@@ -98,6 +113,7 @@ public final class TabsApp extends Application {
         t.wake = () -> { if (t.owner != null) t.owner.wake(t); };
         t.title.addListener((ov, was, now) -> {
             t.noteTitle(now);
+            attention.update(t);
             if (t.owner != null) t.owner.refreshSoon();
         });
         return t;
@@ -203,6 +219,7 @@ public final class TabsApp extends Application {
     void fontSize(double size) {
         if (!FontSize.set(size)) return;
         for (var t : allTabs()) t.fontChanged();
+        windows.forEach(w -> w.footer.magnified());
     }
 
     List<TerminalTab> allTabs() {

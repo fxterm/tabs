@@ -324,7 +324,7 @@ public final class TestHooks {
             });
             Bench.sleep(2500);
             Platform.runLater(() -> System.err.println("test-wakeall: live " + app.tabs.stream().filter(TerminalTab::live).count()
-                    + " of " + app.tabs.size() + ", button shown " + app.footer.restoreAll.isVisible() + ", focus on "
+                    + " of " + app.tabs.size() + ", button enabled " + !app.sidebar.toolbar.restoreAll.isDisabled() + ", focus on "
                     + (scene.getFocusOwner() == null ? "nothing" : scene.getFocusOwner().getClass().getSimpleName())));
         });
         // a restored tab: shown asleep, Enter wakes it, its shell starts in the saved folder, a cd is noticed

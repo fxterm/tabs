@@ -24,7 +24,8 @@ $ErrorActionPreference = 'Continue'
 Set-Location $PSScriptRoot
 
 $gh = if ($env:GH) { $env:GH } else { 'gh' }
-$mvn = if ($env:MVN) { $env:MVN } else { 'C:\user\Apps\cmdtools\maven\apache-maven\bin\mvn.cmd' }
+# MVN: the Maven to build with (the release wants a plain Maven 3); set it once in your own environment, not here
+$mvn = if ($env:MVN) { $env:MVN } else { 'mvn' }
 $repo = 'fxterm/tabs'
 $version = ([xml](Get-Content pom.xml)).project.version
 $tag = "v$version"

@@ -16,6 +16,8 @@ Status: 0.1, early releases. Windows is the main platform; macOS (Apple silicon 
 
 Each tab shows three lines: its title, its folder's name, and the full path. A number in the corner is the key that reaches it (Ctrl+1 or Alt+1 for the first). In the picture above, **Backend**, **Frontend** and **Later** are separators: labels that group the tabs under them. Add one with the "⎯ label" button under the list, or with "Insert separator above" in a tab's menu. Separators are never selected and are skipped by Ctrl+Tab and the number keys.
 
+Click a label to fold its group. Each label also has a **Zz** button at its right end for the group's sleeping tabs: it shows how many there are ("Zz 3"); click it and the sleeping tabs are hidden, leaving the live ones, and the button turns solid and counts what is hidden ("Zz 3 hidden"), so nothing is ever silently gone. Click again to show them. Hidden tabs keep their places, so the order of your list does not change; the tab you are looking at always stays in view, and a tab you wake appears at once. Ctrl+Shift+Z does the same for the group of the shown tab, and the label's menu has it too. The choice is saved with the label.
+
 Give a tab a colour from its menu (right-click, Colour) and the colour shows as a strip at its left edge. The active tab is a lighter row with white text. If you prefer the whole row and the frame round the terminal in the tab's colour, start Tabs with `--tab-fill full`.
 
 Drag a tab to reorder it (or press Ctrl+Shift+PgUp / PgDn). A new tab opens just after the current one.
@@ -29,7 +31,7 @@ When Tabs closes it saves every tab. When it starts again, every tab comes back 
 - A shell wakes in its last folder.
 - A Claude Code tab wakes as the same conversation with the same flags (`claude ... --resume <id>`).
 - If a shell had been running Claude Code before Tabs closed, F3 resumes that last conversation instead.
-- "Restore all" in the footer wakes every tab in the window.
+- The sun button in the row above the tab list ("Restore all") wakes every sleeping tab in the window.
 
 A sleeping tab is dulled in the list and carries a grey moon; hover the moon and it turns into a yellow sun, and one click wakes the tab. To put a tab to sleep yourself, hover its RAM figure and click Zz, or choose Hibernate in its menu. When memory runs short, hidden Claude tabs that have been idle are put to sleep for you.
 
@@ -42,6 +44,18 @@ Each live tab shows the RAM of its shell and everything it runs: blue under 100 
 ### Several windows, one process
 
 Drag a tab out of the window and it opens in a new window, with its program still running. Drop it on another window's list to move it there, or use "Move to window" in its menu. Ctrl+Shift+N opens a new window. A window left without tabs closes. Every window, with its place on the screen and its tabs, comes back after a restart.
+
+### Window names and colours
+
+Each window has its own colour, never one that another open window wears, and can be given a name. The colour fills the window's title bar and border on Windows 11 and the terminal icon on the taskbar, so windows tell apart at a glance. The row above the tab list has flat icon buttons, with colour when the mouse is over one: History, the window's colour, its name, Restore all (the sun) and Settings (the gear). Name and colour are kept across restarts.
+
+### The tab switcher
+
+Ctrl+Tab opens a popup that goes to a tab in any window. The list on the left holds every awake tab, under its group, under its window, and then the same again for the hibernated tabs; the right side shows what the highlighted tab shows now, or its saved text when it sleeps. Type to filter: a tab's number, part of its name or folder, a window's or group's name, several words at once. Up and Down move, Enter goes there, Backspace takes back what was typed, Esc closes.
+
+### A tab that asks for you
+
+A program in a tab that is blocked on you (Claude Code, say) runs `fxterm-tabs ctl attention on`; Tabs finds that tab by itself. Its row turns amber with a softly glowing bell, Tabs plays one quiet sound, and a small popup asks whether to switch to that tab: Yes (F2), No (Esc), and with no answer in 20 seconds Tabs switches there by itself. Keys are ignored for the first moments, so what you were typing cannot answer it. `fxterm-tabs ctl attention off` takes the bell away, and so does typing in that tab. A title that starts with a bell, a warning sign, a siren or an exclamation mark does the same, and keeps the mark in the window title and tooltip. Only the animated marks programs cycle through (claude's stars, braille dots, the spinning bar) are replaced by Tabs' own activity ring. Only the bell glows; no row moves or changes size, so the tab list never shakes.
 
 ### History
 
@@ -84,15 +98,15 @@ That puts `Tabs.app` in `~/Applications` and a command `fxterm-tabs` in `~/.loca
 
 What differs from Windows:
 
-- The Command key does what Ctrl does on Windows: Cmd+T new tab, Cmd+N new window, Cmd+W close, Cmd+1..9 go to a tab, Cmd+= / Cmd+- / Cmd+0 font size, Cmd+Shift+E compose, Cmd+Shift+H history, Cmd+C / Cmd+V copy and paste. Ctrl+Tab and Ctrl+Shift+Tab still step between tabs, and every Ctrl key goes to the program in the tab.
+- The Command key does what Ctrl does on Windows: Cmd+T new tab, Cmd+N new window, Cmd+W close, Cmd+1..9 go to a tab, Cmd+= / Cmd+- / Cmd+0 font size, Cmd+Shift+E compose, Cmd+Shift+H history, Cmd+C / Cmd+V copy and paste. Ctrl+Tab and Ctrl+Shift+Tab still open the tab switcher, and every Ctrl key goes to the program in the tab.
 - New tabs run your login shell (`$SHELL -l`, zsh by default). A tab that ran Claude Code wakes as `claude ... --resume <id>` inside a login shell, and drops back to a shell when claude ends.
 - The look is VS Code's terminal in its Dark Modern theme, in Menlo. `--theme tabby` uses an existing Tabby configuration instead (`~/Library/Application Support/tabby/config.yaml`).
-- Not on a Mac yet: dragging a tab out of the window into a new window, clickable file paths (web links work), and dictation (it needs speech keys, and the app needs a microphone permission text that the launcher cannot write yet). Read aloud works with the Deepgram voices when `~/speechfx/keys/deepgram_keys.xml` holds a key; the free system voices are not connected. Everything else in this README works on a Mac.
+- Not on a Mac yet: dragging a tab out of the window into a new window, clickable file paths (web links work), and dictation (it needs speech keys; the build now writes the microphone permission text, since jr-maven-plugin 1.5.0, but it has not been tried on a Mac yet). Read aloud works with the Deepgram voices when `~/speechfx/keys/deepgram_keys.xml` holds a key; the free system voices are not connected. Everything else in this README works on a Mac.
 
 ## Keys
 
 - Ctrl+Shift+T new tab, Ctrl+Shift+N new window, Ctrl+Shift+W close tab
-- Ctrl+Tab / Ctrl+Shift+Tab next / previous tab, Ctrl+1..9 or Alt+1..9 go to a tab
+- Ctrl+Tab opens the tab switcher (Ctrl+Shift+Tab opens it one up): type a number or part of a name, Up/Down, Enter; Ctrl+1..9 or Alt+1..9 go straight to a tab
 - Ctrl+Shift+PgUp / PgDn move the tab up / down
 - Ctrl+Shift+E compose, Ctrl+Shift+H history, Ctrl+F find
 - Ctrl+= / Ctrl+- / Ctrl+0 font size

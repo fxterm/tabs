@@ -43,7 +43,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         // shown as text: its frames differ in width and baseline and the name beside it twitched. A drawn mark of
         // one fixed size stands in for it (see ActivityMark).
         HBox.setHgrow(name, Priority.ALWAYS);
-        var nameRow = new HBox(2, activity, name);
+        var nameRow = new HBox(4, activity, bell, name);
         nameRow.setAlignment(Pos.CENTER_LEFT);
         var text = new VBox(-1, nameRow, sub, path);
         textBox = text;
@@ -193,7 +193,13 @@ public final class TabCell extends ListCell<TerminalTab> {
         sepLine.setStyle("-fx-background-color: " + Ui.shade(t.background, 40) + "; -fx-min-height: 1; -fx-max-height: 1; -fx-pref-height: 1;");
         HBox.setHgrow(sepLine, Priority.ALWAYS);
         arrow.setStyle("-fx-text-fill: " + t.colors.get(4) + "; -fx-font-size: 12; -fx-min-width: 12;");
-        sepRow = new HBox(6, arrow, sepLabel, sepLine);
+        zz.setOnMouseClicked(e -> {
+            if (getItem() != null && getItem().separator && e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
+                side.app.toggleAsleep(getItem());
+                e.consume();
+            }
+        });
+        sepRow = new HBox(6, arrow, sepLabel, sepLine, zz);
         sepRow.setAlignment(Pos.CENTER_LEFT);
         // a click on a label (not the end of a drag) folds or unfolds its group
         setOnMouseClicked(e -> {
@@ -213,6 +219,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         if (empty || t == null || t.separator) {
             name.textProperty().unbind();
             activity.show(null, Color.WHITE, Color.WHITE);
+            bell.show(false);
         }
         // the drop line belongs to a drag in progress; a row reused for another tab must not carry it along
         // (only when there is one: setting it, even to the same null, replaces the row's CSS side bar for a moment)
@@ -227,6 +234,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         }
         // a tab in a folded group takes no room (it keeps its place in the list, so indexes stay what they were)
         if (side.app.folded(t)) {
+            bell.show(false);
             setGraphic(null);
             setTooltip(null);
             setContextMenu(null);
@@ -247,6 +255,21 @@ public final class TabCell extends ListCell<TerminalTab> {
                     + "; -fx-min-height: 1; -fx-max-height: 1; -fx-pref-height: 1;");
             arrow.setText(t.collapsed ? "▸" : "▾");
             sepLabel.setText(t.shown().toUpperCase(Locale.ROOT) + (t.collapsed ? "  (" + inside + ")" : ""));
+            // Zz: this group's hibernated tabs. Hidden ones are counted on the header, so they are never silently gone;
+            // a click shows or hides them. Nothing shows for a group with none that is not hiding any.
+            var asleep = side.app.asleepIn(t);
+            var showZz = !t.collapsed && (t.hideAsleep || asleep[0] > 0);
+            zz.setManaged(showZz);
+            zz.setVisible(showZz);
+            if (showZz) {
+                var hiding = t.hideAsleep;
+                zz.setText(hiding ? "Zz " + asleep[1] + " hidden" : "Zz " + asleep[0]);
+                zz.setStyle("-fx-font-size: 11; -fx-font-weight: bold; -fx-padding: 0 6 0 6; -fx-background-radius: 8; -fx-cursor: hand; "
+                        + (hiding ? "-fx-background-color: " + group + "; -fx-text-fill: " + side.theme.background + ";"
+                                  : "-fx-text-fill: " + group + "; -fx-opacity: 0.75; -fx-border-color: " + group + "; -fx-border-radius: 8;"));
+                zz.setTooltip(new Tooltip(hiding ? "Showing only the live tabs; click to show the " + asleep[0] + " hibernated ones too"
+                        : "Click to hide the " + asleep[0] + " hibernated tabs of this group (Ctrl+Shift+Z)"));
+            }
             setTooltip(sepTip);
             sepTip.setText((t.collapsed ? "Click to show its " + inside + " tabs" : "Click to fold this group") + "; drag to move the group");
             setTooltip(null);
@@ -271,7 +294,8 @@ public final class TabCell extends ListCell<TerminalTab> {
         // the name follows the tab's title by itself: a title a program rewrites ten times a second changes this one
         // label and nothing else, with no redraw of the list
         name.textProperty().unbind();
-        name.textProperty().bind(javafx.beans.binding.Bindings.createStringBinding(() -> plain(t.shown()), t.title, t.custom));
+        name.textProperty().bind(javafx.beans.binding.Bindings.createStringBinding(() -> rowName(t.shown()), t.title, t.custom));
+        bell.show(t.attention());
         var hasGlyph = javafx.beans.binding.Bindings.createBooleanBinding(() -> glyphOf(t.shown()) == 1, t.title, t.custom);
         activity.visibleProperty().unbind();
         activity.managedProperty().unbind();
@@ -305,8 +329,9 @@ public final class TabCell extends ListCell<TerminalTab> {
 
     /** The row's fill, and text that stays readable on it. */
     void paint(boolean selected, String colour) {
-        setStyle(Ui.cell(side.theme, selected, colour));
-        textOn(selected, colour);
+        var asks = getItem() != null && !getItem().separator && getItem().attention();
+        setStyle(asks ? Ui.cellAsking(side.theme, selected) : Ui.cell(side.theme, selected, colour));
+        textOn(selected, asks && !selected ? null : colour);
         // a tab asleep is dulled (its text, number and icon) so the live ones stand out; the active one a little less
         var asleep = getItem() != null && !getItem().separator && !getItem().live();
         var dull = asleep ? (selected ? 0.75 : 0.45) : 1.0;
@@ -328,10 +353,17 @@ public final class TabCell extends ListCell<TerminalTab> {
 
     final String ramStyle;
     final ActivityMark activity = new ActivityMark();
+    final BellMark bell = new BellMark();
 
     /** Whether the title starts with a program's symbol (1) or not (0): the only thing about it the row shows. */
     static int glyphOf(String title) {
         return GLYPH.matcher(title).matches() ? 1 : 0;
+    }
+
+    /** The title as the row shows it: without claude's symbol, and without a leading bell or warning mark, which the row draws itself (BellMark). */
+    static String rowName(String title) {
+        var p = plain(title);
+        return attention(p) ? p.substring(Character.charCount(p.codePointAt(0))).stripLeading() : p;
     }
 
     /** The title without the symbol claude puts first. */
@@ -343,7 +375,17 @@ public final class TabCell extends ListCell<TerminalTab> {
      *  (· ✢ ✳ ✶ ✻ ✽), braille dots (npm, pip, ora, cargo: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ and ⣾⣽⣻⢿⡿⣟⣯⣷), the quarter circles and
      *  circle halves (◐◓◑◒ ◴◷◶◵ ◜◠◝◞◡◟), the arrows (←↖↑↗→↘↓↙), the block bars (▖▘▝▗ ▁▃▄▅▆▇), the star and dingbat
      *  runs, and the plain ASCII wheel | / - \ (and *). */
-    static final Pattern GLYPH = Pattern.compile("^([\\p{So}\\p{Sm}\\u00B7\\u2190-\\u21FF\\u2580-\\u259F\\u25A0-\\u25FF\\u2800-\\u28FF\\u2700-\\u27BF*|/\\\\-])\\s+(.+)$", Pattern.DOTALL);
+    static final Pattern GLYPH = Pattern.compile("^([[\\p{So}\\p{Sm}\\u00B7\\u2190-\\u21FF\\u2580-\\u259F\\u25A0-\\u25FF\\u2800-\\u28FF\\u2700-\\u27BF*|/\\\\-]"
+            + "&&[^\\x{1F514}\\x{26A0}\\x{1F6A8}\\x{2757}]])\\s+(.+)$", Pattern.DOTALL);
+
+    /** The marks that ask for the user: the bell, the warning sign, the siren and the heavy exclamation mark. They are
+     *  symbols (category So) like claude's spinner frames, so the GLYPH family above takes them out by name: a title
+     *  that starts with one keeps it in the row, the window title and the tooltip, and the row is drawn as asking. */
+    static boolean attention(String title) {
+        if (title == null || title.isEmpty()) return false;
+        var c = title.codePointAt(0);
+        return c == 0x1F514 || c == 0x26A0 || c == 0x1F6A8 || c == 0x2757;
+    }
 
     /** The RAM on a coloured pill: blue under 100 MB, yellow from 100, orange from 200; the tab using the most, once
      *  past 100 MB, red with a glow, so the heavy one stands out. */
@@ -373,7 +415,7 @@ public final class TabCell extends ListCell<TerminalTab> {
     }
 
     ContextMenu openMenu;
-    final Label sepLabel = new Label(), arrow = new Label();
+    final Label sepLabel = new Label(), arrow = new Label(), zz = new Label();
     final Region sepLine = new Region();
     final Tooltip sepTip = new Tooltip();
     final HBox sepRow;

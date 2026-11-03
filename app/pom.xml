@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.github.fxterm</groupId>
         <artifactId>fxterm-tabs-parent</artifactId>
-        <version>0.1.7</version>
+        <version>0.1.8</version>
     </parent>
     <artifactId>fxterm-tabs</artifactId>
 
@@ -79,7 +79,7 @@
             <plugin>
                 <groupId>io.github.jarrunner</groupId>
                 <artifactId>jr-maven-plugin</artifactId>
-                <version>1.3.0</version>
+                <version>1.5.0</version>
                 <executions>
                     <execution>
                         <!-- verify, after package's shade, so it hashes the jar just written -->
@@ -95,12 +95,30 @@
                     <productName>Tabs</productName>
                     <companyName>fxterm</companyName>
                     <copyright>fxterm contributors</copyright>
+                    <!-- PRP-61: what Tabs needs from macOS, said up front; each sentence is what the person reads when macOS asks. A shell running inside Tabs inherits the folder access. -->
+                    <macosPermissions>
+                        <microphone>Tabs listens to your microphone only when you dictate into the compose box.</microphone>
+                        <documents>Tabs lets the terminal and your tools open and save files in your Documents folder.</documents>
+                        <desktop>Tabs lets the terminal and your tools open and save files on your Desktop.</desktop>
+                        <downloads>Tabs lets the terminal and your tools open and save files in your Downloads folder.</downloads>
+                        <removableVolumes>Tabs lets the terminal and your tools open and save files on USB drives and other removable disks.</removableVolumes>
+                        <networkVolumes>Tabs lets the terminal and your tools open and save files on network drives.</networkVolumes>
+                    </macosPermissions>
+                    <!-- PRP-61: what Tabs needs from macOS, said up front; each sentence is what the person reads when macOS asks. A shell running inside Tabs inherits the folder access. -->
+                    <macosPermissions>
+                        <microphone>Tabs listens to your microphone only when you dictate into the compose box.</microphone>
+                        <documents>Tabs lets the terminal and your tools open and save files in your Documents folder.</documents>
+                        <desktop>Tabs lets the terminal and your tools open and save files on your Desktop.</desktop>
+                        <downloads>Tabs lets the terminal and your tools open and save files in your Downloads folder.</downloads>
+                        <removableVolumes>Tabs lets the terminal and your tools open and save files on USB drives and other removable disks.</removableVolumes>
+                        <networkVolumes>Tabs lets the terminal and your tools open and save files on network drives.</networkVolumes>
+                    </macosPermissions>
                     <javaVersion>25+</javaVersion>
                     <jvmMode>dll</jvmMode>
                     <vmArgs>
                         <vmArg>-Xms16m</vmArg>
-                        <vmArg>-Xmx128m</vmArg>
-                        <vmArg>-XX:MaxNewSize=32m</vmArg>
+                        <vmArg>-Xmx768m</vmArg>
+                        <vmArg>-XX:MaxNewSize=64m</vmArg>
                         <vmArg>-XX:+UseSerialGC</vmArg>
                         <vmArg>-XX:MinHeapFreeRatio=10</vmArg>
                         <vmArg>-XX:MaxHeapFreeRatio=30</vmArg>

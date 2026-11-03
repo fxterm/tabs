@@ -33,12 +33,17 @@ public final class TabsWindow {
     final Composer composer;
     final Scene scene;
     boolean moving;
+    /** What the user called this window (null: none, it is "Window N"), and its colour: the colour of its title bar,
+     *  its border and its taskbar icon, never one that another open window wears. */
+    String name, colour;
 
     TabsWindow(TabsApp app, Stage stage, WindowState ws) {
         this.app = app;
         this.options = app.options;
         this.theme = app.theme;
         this.stage = stage;
+        this.name = ws.name;
+        this.colour = ws.colour != null ? ws.colour : app.freeColour();
         soon.setOnFinished(e -> refresh());
         // a tab added or taken away here renumbers the windows after this one
         tabs.addListener((ListChangeListener<TerminalTab>) c -> app.windows.forEach(TabsWindow::refreshSoon));
@@ -65,6 +70,11 @@ public final class TabsWindow {
         scene.getPreferences().setColorScheme(theme.dark() ? javafx.application.ColorScheme.DARK : javafx.application.ColorScheme.LIGHT);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, this::keys);
         scene.addEventFilter(KeyEvent.ANY, e -> IdleTrim.activity());
+        // typing in a tab that was asking for the user is the answer: the bell goes
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            var shown = selected();
+            if (shown != null && shown.asking) { shown.asking = false; app.attention.update(shown); refreshSoon(); }
+        });
         // a new press anywhere in the window (a click, a right-click paste) closes the selection's popup
         scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> hideSelectionPopup());
         scene.addEventFilter(MouseEvent.MOUSE_CLICKED, e -> { if (e.getButton() == MouseButton.SECONDARY) hideSelectionPopup(); });
@@ -97,7 +107,7 @@ public final class TabsWindow {
         });
         list.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> focusSoon());
         stage.setScene(scene);
-        stage.getIcons().addAll(new Image(TabsApp.class.getResourceAsStream("icon-256.png")), new Image(TabsApp.class.getResourceAsStream("icon-32.png")));
+        stage.getIcons().setAll(WindowLook.icon("icon-256.png", colour), WindowLook.icon("icon-32.png", colour));
         stage.setOnCloseRequest(e -> { e.consume(); app.closeWindow(this); });
         if (options.offscreen) {
             stage.initStyle(StageStyle.UTILITY);
@@ -111,8 +121,28 @@ public final class TabsWindow {
     /** Shows the window, with the tab list at its saved width. */
     void open(WindowState ws) {
         stage.show();
-        TitleBar.paintSoon(theme);
+        TitleBar.paintSoon(this);
         split.setDividerPositions(ws.sidebar / stage.getWidth());
+    }
+
+    /** "Window 2" until the user names it. */
+    String windowLabel() {
+        return name != null ? name : "Window " + (app.windows.indexOf(this) + 1);
+    }
+
+    /** The window's colour or name changed: its taskbar icon, title bar, border, toolbar and title follow, and the
+     *  choice is saved at once (a crash must not lose it). */
+    void look() {
+        stage.getIcons().setAll(WindowLook.icon("icon-256.png", colour), WindowLook.icon("icon-32.png", colour));
+        sidebar.toolbar.look();
+        refresh();
+        TitleBar.paintSoon(this);
+        app.saveWindows();
+    }
+
+    /** The toolbar's History button: shows History, or goes back to the tab when it is already showing. */
+    void toggleHistory() {
+        if (historyShown()) hideHistory(); else showHistory();
     }
 
     /** The tab list and the terminal side by side with a draggable divider; the list keeps its width when the window
@@ -156,10 +186,11 @@ public final class TabsWindow {
         else if ((ctrlShift || Os.MAC && ctrlOnly) && code == KeyCode.N) app.newWindow(null, Double.NaN, Double.NaN, this);
         else if ((ctrlShift || Os.MAC && ctrlOnly) && code == KeyCode.W) requestClose(selected());
         else if (ctrlShift && code == KeyCode.E) toggleCompose();
+        else if (ctrlShift && code == KeyCode.Z) toggleAsleepOfShown();
         else if (ctrlShift && code == KeyCode.H) { if (historyShown()) hideHistory(); else showHistory(); }
         else if (ctrlShift && (code == KeyCode.PAGE_UP || code == KeyCode.PAGE_DOWN) && selected() != null)
             move(selected(), tabs.indexOf(selected()) + (code == KeyCode.PAGE_UP ? -1 : 1));
-        else if (e.isControlDown() && code == KeyCode.TAB) step(e.isShiftDown() ? -1 : 1);
+        else if (e.isControlDown() && code == KeyCode.TAB) app.switcher.open(this, e.isShiftDown() ? -1 : 1);
         else if ((alt || ctrlOnly) && code.isDigitKey() && code != KeyCode.DIGIT0 && code != KeyCode.NUMPAD0)
             select(code.getCode() - (code.isKeypadKey() ? KeyCode.NUMPAD1 : KeyCode.DIGIT1).getCode());
         else if (mod && !e.isAltDown() && (code == KeyCode.EQUALS || code == KeyCode.PLUS || code == KeyCode.ADD))app.fontSize(FontSize.get() + FontSize.STEP);
@@ -234,7 +265,7 @@ public final class TabsWindow {
         // the words being read are lit in one tab's terminal: choosing another tab ends the reading
         if (app.reader.tab != null && app.reader.tab != t) app.reader.stop();
         // a tab chosen in a folded group (by its number, from another tool) opens its group
-        if (folded(t)) {
+        if (folded(t) && headOf(t).collapsed) {
             headOf(t).collapsed = false;
             Events.log("expand", "head", Events.tab(headOf(t)), "because", Events.tab(t));
         }
@@ -509,7 +540,10 @@ public final class TabsWindow {
         var t = selected();
         // without claude's animated symbol: its width changes every frame, and the rest of the title (in the title bar
         // and on the taskbar button) slid left and right with it
-        stage.setTitle(t == null ? "Tabs" : "Tabs - " + TabCell.plain(t.shown()) + " (" + t.where() + ")");
+        stage.setTitle((name == null ? "" : name + "  ·  ") + (t != null && t.asking && !TabCell.attention(t.shown()) ? "D83DDD14 " : "") + (t == null ? "Tabs" : "Tabs - " + TabCell.plain(t.shown()) + " (" + t.where() + ")"));
+        // "Window N" follows the windows opened and closed before this one, so the toolbar's name is read again each time
+        sidebar.toolbar.look();
+        sidebar.toolbar.update(tabs);
         // the list is only laid out again when something it shows changed: a title that a program rewrites many
         // times a second (claude's spinner) used to redraw every row each time, and the sidebar shook under it
         var rows = rowsShown();
@@ -534,10 +568,14 @@ public final class TabsWindow {
     /** What the tab list shows, as one string: when it is the same as last time the list need not be redrawn. */
     String rowsShown() {
         var s = new StringBuilder().append(firstNumber()).append('\n');
+        // while a group hides its hibernated tabs, which tab is shown decides what that group shows
+        var hideAny = tabs.stream().anyMatch(x -> x.separator && x.hideAsleep);
+        var shownTab = hideAny ? selected() : null;
         for (var x : tabs) {
             s.append(x.separator ? 'S' : 'T').append(x.separator ? x.shown() : "").append('\u0001').append(x.where()).append('\u0001').append(x.live())
                     .append('\u0001').append(x.live() ? x.ramBytes >> 20 : 0).append('\u0001').append(x.color.get()).append('\u0001')
-                    .append(x.collapsed).append(x.hibernating).append('\n');
+                    .append(x.collapsed).append(x.hideAsleep).append(x == shownTab).append(x.hibernating)
+                    .append(!x.separator && x.attention()).append('\n');
         }
         return s.toString();
     }
@@ -575,7 +613,38 @@ public final class TabsWindow {
     boolean folded(TerminalTab t) {
         if (t.separator) return false;
         var head = headOf(t);
-        return head != null && head.collapsed;
+        return head != null && (head.collapsed || hiddenAsleep(t, head));
+    }
+
+    /** True for a hibernated tab that its group hides; the shown tab always stays in sight, so the list never loses
+     *  what the terminal beside it is showing. */
+    boolean hiddenAsleep(TerminalTab t, TerminalTab head) {
+        return head.hideAsleep && !t.separator && !t.live() && t != selected();
+    }
+
+    /** How many of a group's tabs are hibernated, and how many of those its header hides. */
+    int[] asleepIn(TerminalTab head) {
+        int all = 0, hidden = 0;
+        for (var t : group(head)) {
+            if (t.separator || t.live()) continue;
+            all++;
+            if (hiddenAsleep(t, head)) hidden++;
+        }
+        return new int[] {all, hidden};
+    }
+
+    /** Hides or shows a group's hibernated tabs. Their places in the list do not change, so the to-do order holds. */
+    void toggleAsleep(TerminalTab head) {
+        head.hideAsleep = !head.hideAsleep;
+        Events.log(head.hideAsleep ? "hide-asleep" : "show-asleep", "head", Events.tab(head), "asleep", asleepIn(head)[0]);
+        refresh();
+        focusSoon();
+    }
+
+    /** Ctrl+Shift+Z: the same, for the group of the shown tab. */
+    void toggleAsleepOfShown() {
+        var head = selected() == null ? null : headOf(selected());
+        if (head != null) toggleAsleep(head);
     }
 
     /** Folds or unfolds a group. Folding the group of the shown tab shows the nearest tab still in sight. */

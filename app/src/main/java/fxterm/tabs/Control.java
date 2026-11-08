@@ -40,6 +40,31 @@ public final class Control {
             Ids come from `list`; they last while Tabs runs. Windows count from 0, tabs from 0 in list order.
             """;
 
+    /**
+     * A launch that finds no registered window joins the running one through its control socket: `new` opens the tab in
+     * whichever window answers, so the tab lands where the user is, not in a window of its own. Needed because the
+     * registration file (Instance) is left behind by a window that exited, and then the forward to it is refused.
+     * Only open and run are joined; a bare launch still shows its own window as before.
+     */
+    static boolean join(Request r) {
+        if (!"open".equals(r.kind) && !"run".equals(r.kind)) return false;
+        try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(socket(null)))) {
+            var req = JSON.createObjectNode().put("cmd", "new").put("dir", r.cwd);
+            if ("run".equals(r.kind) && !r.argv.isEmpty()) req.put("command", quoted(r.argv));
+            ch.write(ByteBuffer.wrap((JSON.writeValueAsString(req) + "\n").getBytes(StandardCharsets.UTF_8)));
+            var reply = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
+            return reply != null && JSON.readTree(reply).path("ok").asBoolean(false);
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** The words of a command line again, with quotes round any word that holds a space: ClaudeProbe.tokens reads them back. */
+    static String quoted(List<String> words) {
+        return words.stream().map(w -> w.isEmpty() || w.chars().anyMatch(Character::isWhitespace) ? "\"" + w + "\"" : w)
+            .collect(java.util.stream.Collectors.joining(" "));
+    }
+
     /** Where the socket lives: in the state folder, or beside a --state file for tests (a short temp name, since a
      *  Unix-domain socket path is limited to about 100 characters). */
     static Path socket(String state) {

@@ -39,6 +39,12 @@ public final class Instance {
             Files.createDirectories(FILE.getParent());
             var info = JSON.createObjectNode().put("port", server.getLocalPort()).put("token", token).put("pid", ProcessHandle.current().pid());
             Files.writeString(FILE, JSON.writeValueAsString(info));
+            // a window that exits leaves its registration behind, and every later launch then fails to reach anything through it:
+            // remove it on the way out, but only while it still names this window
+            var pid = ProcessHandle.current().pid();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try { if (Files.readString(FILE).contains("\"pid\":" + pid + "}")) Files.deleteIfExists(FILE); } catch (IOException ignored) { }
+            }));
             Thread.ofPlatform().daemon().name("instance").start(() -> {
                 while (true) {
                     try (var s = server.accept()) {

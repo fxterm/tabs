@@ -16,7 +16,8 @@ public final class Main {
         if (!list.isEmpty() && list.getFirst().equals("ctl")) System.exit(Control.client(list.subList(1, list.size())));
         logToFile();
         var request = Request.parse(list);
-        if (request != null && Instance.forward(request)) System.exit(0);
+        // the registered window first; then any running window through its control socket (see Control.join); else a window of its own
+        if (request != null && (Instance.forward(request) || Control.join(request))) System.exit(0);
         TabsApp.request = request;
         var options = request == null ? args : new String[0];
         javafx.application.Application.launch(TabsApp.class, options);

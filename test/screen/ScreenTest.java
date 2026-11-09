@@ -22,7 +22,7 @@ public class ScreenTest {
     static JsonNode ctl(String json) throws IOException {
         try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(Control.socket(state.toString())))) {
             ch.write(ByteBuffer.wrap((json + "\n").getBytes(StandardCharsets.UTF_8)));
-            return Instance.JSON.readTree(new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine());
+            return Control.JSON.readTree(new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine());
         }
     }
 
@@ -108,7 +108,7 @@ public class ScreenTest {
     static void styled() throws Exception {
         var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         var command = "\"" + java + "\" -cp \"" + System.getProperty("java.class.path") + "\" fxterm.tabs.ScreenTest emit";
-        id = ctl(Instance.JSON.createObjectNode().put("cmd", "new").put("title", "colours").put("command", command).toString()).path("id").asText();
+        id = ctl(Control.JSON.createObjectNode().put("cmd", "new").put("title", "colours").put("command", command).toString()).path("id").asText();
         first = waitFor(id, "READY");
         check(first.path("ok").asBoolean(), "screen answers ok: " + first.path("error").asText(""));
         check(first.path("cols").asInt() > 0 && first.path("rows").asInt() > 0, "cols and rows: " + first.path("cols") + " x " + first.path("rows"));

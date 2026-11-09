@@ -22,6 +22,16 @@ Give a tab a colour from its menu (right-click, Colour) and the colour shows as 
 
 Drag a tab to reorder it (or press Ctrl+Shift+PgUp / PgDn). A new tab opens just after the current one.
 
+### Opening a tab inside a group
+
+A launch from the command line can say where its tab goes: `fxterm-tabs run --group "<label>" <command...>`, `fxterm-tabs open --group "<label>" [dir]` and `fxterm-tabs ctl new group=<label>`. The new tab goes at the end of that group, so tabs launched one after another stay in launch order. A group that does not exist is made, as a label at the end of the window. Write `--group` right after `run` or `open` and before the command, so a command that itself starts with `--` still works.
+
+Without `--group`, the tab goes into the group of the tab the launch came from. Every tab's programs have `FXTERM_TABS_TAB=<tab id>` in their environment, and every process below the tab inherits it (claude, its shell tool, proj, cmd, the launcher), so this works however many levels down, even when a process in between has already ended. A launch from a tab in no group, or with an id that no tab has any more (Tabs was restarted), opens at the end of the window as before.
+
+The window is the one of the starting tab when it is known; with `--group`, the window that already has a label of that name (the starting tab's window first). A folded group opens for the new tab, and a new tab is never hidden by a group's Zz.
+
+`fxterm-tabs ctl whoami`, run inside a tab, answers that tab's id, window index, group (null when none) and folder.
+
 ### Tabs that sleep and wake
 
 ![A sleeping tab: the moon in the list, and its saved text with a Restore button](docs/screenshots/asleep.png)
@@ -84,7 +94,7 @@ Ctrl+= makes the text bigger, Ctrl+- smaller, and Ctrl+0 goes back to the defaul
 - The footer shows the tab's folder; click it to copy. Copy text copies the whole tab, Find (Ctrl+F) searches it.
 - A tab's menu: copy folder path, copy command (the line that brings the tab back in any cmd window), rename, colour, duplicate, hibernate or restore, move to window, insert separator above, close, close tabs above / below / others.
 - Colours and font size are read from an existing Tabby configuration, so moving over looks the same.
-- Tabby-compatible command line: `fxterm-tabs open <dir>` opens a shell there, `fxterm-tabs run <command...>` opens a tab running a command. A second launch adds a tab to the running window.
+- Tabby-compatible command line: `fxterm-tabs open <dir>` opens a shell there, `fxterm-tabs run <command...>` opens a tab running a command. A second launch adds a tab to the running window. `--group "<label>"` puts the new tab in a group (next section).
 
 ### On a Mac
 

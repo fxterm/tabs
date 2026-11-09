@@ -143,7 +143,7 @@ public class GroupTest {
         var n10 = launch(null, 1, "run", "--group", "A", "cmd", "/k", "rem");
         var t = Stream.of(tabs()).flatMap(n -> StreamSupport.stream(n.spliterator(), false)).filter(n -> n.path("id").asText().equals(n10)).findFirst().orElseThrow();
         check(!t.path("folded").asBoolean() && t.path("selected").asBoolean(), "launch into a folded group: the group opened and the new tab is shown: " + t);
-        check(!ctl("{\"cmd\":\"collapse\",\"id\":\"" + aHead + "\",\"on\":false}").path("collapsed").asBoolean(), "(the group is open)");
+        check(StreamSupport.stream(tabs().spliterator(), false).noneMatch(n -> n.path("id").asText().equals(aHead) && n.path("collapsed").asBoolean()), "launch into a folded group: the label A is no longer folded");
 
         // a group hiding its hibernated tabs: the new tab (live, shown) is not hidden
         ctl("{\"cmd\":\"hibernate\",\"id\":\"" + a1 + "\"}");

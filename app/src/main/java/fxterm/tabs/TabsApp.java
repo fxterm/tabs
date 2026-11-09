@@ -123,7 +123,11 @@ public final class TabsApp extends Application {
     /** Another launch asked for something (Tabby's `open` / `run`, or just to be shown): to the last window used. */
     void handle(Request r) {
         var w = windows.contains(lastFocused) ? lastFocused : windows.getFirst();
-        if (!"show".equals(r.kind)) w.list.getSelectionModel().select(w.adopt(wire(TerminalTab.of(options, theme, r))));
+        if (!"show".equals(r.kind)) {
+            var t = wire(TerminalTab.of(options, theme, r));
+            w = Placement.add(this, t, r.group, r.from, w, false);
+            w.list.getSelectionModel().select(t);
+        }
         if (w.stage.isIconified()) w.stage.setIconified(false);
         w.stage.toFront();
     }

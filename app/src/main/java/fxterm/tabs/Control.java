@@ -17,7 +17,11 @@ public final class Control {
     static final String HELP = """
             fxterm-tabs ctl <command> [name=value ...]     (values: text, numbers, true/false)
               list                                   windows and tabs: id, index, title, folder, live, colour, claude
-              new [dir=] [command=] [title=] [window=] a tab (a shell in dir, or running command)
+              new [dir=] [command=] [title=] [window=] [group=] [from=]
+                                                     a tab (a shell in dir, or running command). group=<label>: at the end of that
+                                                     group (made at the end of the window when there is none). from=<tab id>: in
+                                                     the group of that tab (the launcher sends its FXTERM_TABS_TAB); without
+                                                     either, the end of the window
               separator title= [at=] [window=]       a separator row at index at (end if left out)
               select id=                             show that tab
               move id= to= [window=]                 to index `to` of its window, or of another window
@@ -35,6 +39,7 @@ public final class Control {
               switcher [window=0] [step=1] [query=]  open the Ctrl+Tab popup, optionally with text typed in its box
               switcher-shot file=<png>               a picture of the open popup;  switcher-close  closes it;  switcher-key spec=  a key to it
               attention [on|off]                    a bell on the calling tab (run inside it): rings once, asks the user to switch to it; off takes it away
+              whoami                                 run inside a tab: its id, window index, group (null when none), folder; read-only, about the caller only
               window-name [window=0] name=           name a window (empty: Window N);  window-colour [window=0] colour=#rrggbb (empty or none: no colour)
               events [n=20]                          the last events from the event log
             Ids come from `list`; they last while Tabs runs. Windows count from 0, tabs from 0 in list order.
@@ -51,6 +56,8 @@ public final class Control {
         try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(socket(null)))) {
             var req = JSON.createObjectNode().put("cmd", "new").put("dir", r.cwd);
             if ("run".equals(r.kind) && !r.argv.isEmpty()) req.put("command", quoted(r.argv));
+            if (r.group != null) req.put("group", r.group);
+            if (r.from != null) req.put("from", r.from);
             ch.write(ByteBuffer.wrap((JSON.writeValueAsString(req) + "\n").getBytes(StandardCharsets.UTF_8)));
             var reply = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
             return reply != null && JSON.readTree(reply).path("ok").asBoolean(false);
@@ -89,10 +96,11 @@ public final class Control {
             return 0;
         }
         req.put("cmd", words.getFirst());
-        if (words.getFirst().equals("attention")) {
-            if (words.size() > 1) req.put("on", !words.get(1).equals("off"));
+        if (words.getFirst().equals("attention") || words.getFirst().equals("whoami")) {
+            if (words.getFirst().equals("attention") && words.size() > 1) req.put("on", !words.get(1).equals("off"));
             req.put("pid", ProcessHandle.current().pid());
             if (System.getenv("CLAUDE_CODE_SESSION_ID") != null) req.put("session", System.getenv("CLAUDE_CODE_SESSION_ID"));
+            if (words.getFirst().equals("whoami") && System.getenv("FXTERM_TABS_TAB") != null) req.put("tab", System.getenv("FXTERM_TABS_TAB"));
         }
         try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(socket(state)))) {
             ch.write(ByteBuffer.wrap((JSON.writeValueAsString(req) + "\n").getBytes(StandardCharsets.UTF_8)));
@@ -192,15 +200,21 @@ public final class Control {
         switch (cmd) {
             case "list" -> out.set("windows", list(app));
             case "new" -> {
-                var w = window(app, r);
                 var req = new Request();
                 req.kind = "run";
                 req.cwd = r.hasNonNull("dir") ? r.get("dir").asText() : null;
                 if (r.hasNonNull("command")) req.argv = ClaudeProbe.tokens(r.get("command").asText());
-                var t = w.adopt(app.wire(TerminalTab.of(app.options, app.theme, req)));
+                var t = app.wire(TerminalTab.of(app.options, app.theme, req));
+                var w = Placement.add(app, t, r.path("group").asText(null), r.path("from").asText(null), window(app, r), r.has("window"));
                 if (r.hasNonNull("title")) t.custom.set(r.get("title").asText());
                 w.list.getSelectionModel().select(t);
                 out.put("id", t.id);
+            }
+            case "whoami" -> {
+                var t = caller(app, r);
+                var head = t.owner.headOf(t);
+                out.put("id", t.id).put("window", app.windows.indexOf(t.owner)).put("title", t.shown()).put("folder", t.where());
+                if (head == null) out.putNull("group"); else out.put("group", head.shown());
             }
             case "separator" -> {
                 var w = window(app, r);
@@ -328,9 +342,13 @@ public final class Control {
                 .orElseThrow(() -> new IllegalArgumentException("no tab " + id + " (fxterm-tabs ctl list)"));
     }
 
-    /** The tab the caller runs in: the tab whose shell is an ancestor of the calling process, else the tab whose claude
-     *  session is the caller's CLAUDE_CODE_SESSION_ID. */
+    /** The tab the caller runs in: the tab named by `tab` (the caller's FXTERM_TABS_TAB, which every process below a tab
+     *  inherits), else the tab whose shell is an ancestor of the calling process, else the tab whose claude session is the
+     *  caller's CLAUDE_CODE_SESSION_ID. */
     static TerminalTab caller(TabsApp app, JsonNode r) {
+        var id = r.path("tab").asText("");
+        var named = app.allTabs().stream().filter(t -> !t.separator && t.id.equals(id)).findFirst();
+        if (named.isPresent()) return named.get();
         var shells = app.allTabs().stream().filter(t -> !t.separator && t.live()).collect(java.util.stream.Collectors.toMap(t -> t.connector.process.pid(), t -> t, (a, b) -> a));
         for (var h = ProcessHandle.of(r.path("pid").asLong(0)); h.isPresent(); h = h.get().parent()) {
             var t = shells.get(h.get().pid());

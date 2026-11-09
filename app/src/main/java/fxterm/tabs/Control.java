@@ -31,6 +31,10 @@ public final class Control {
               color id= color=#rrggbb|none
               send id= text= [enter=true]            type text into the tab ("\\r" for Enter also works)
               buffer id= [lines=50]                  the last lines of its text
+              screen id= [since=<version>]           the visible screen with styling, read-only: cols, rows, cursor{x,y,visible}, version, default{fg,bg},
+                                                     lines = per row runs {x,t,fg,bg,b,i,u,inv} (fg/bg as painted, inverse applied; left out when default).
+                                                     since=<version of the last answer>: {unchanged:true,version} when nothing changed. A sleeping tab answers
+                                                     its saved text unstyled with asleep:true. No scrollback.
               scroll id= by=<lines>|top=true|bottom=true
               hibernate id=   wake id=   close id=
               window-new                             a new window with a fresh tab
@@ -248,6 +252,7 @@ public final class Control {
                 var n = r.path("lines").asInt(50);
                 out.put("text", String.join("\n", Arrays.asList(lines).subList(Math.max(0, lines.length - n), lines.length)));
             }
+            case "screen" -> ScreenView.read(tab(app, r), r.path("since").asLong(-1), out);
             case "scroll" -> {
                 var panel = live(app, r).widget.getTerminalPanel();
                 if (r.path("top").asBoolean(false)) panel.scrollTo(Integer.MIN_VALUE);

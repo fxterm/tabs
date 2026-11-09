@@ -258,7 +258,7 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         this.pane.getStylesheets().add(css);
         setScrollBarRangeProperties(0, 80, 0, 80);
         updateScrolling(true);
-        terminalTextBuffer.addModelListener(() -> repaint());
+        terminalTextBuffer.addModelListener(() -> { changes.incrementAndGet(); repaint(); });
         terminalTextBuffer.addTypeAheadModelListener(() -> repaint());
         terminalTextBuffer.addHistoryBufferListener(() -> myHistoryBufferLineCountChanged.set(true));
         mySelection.addListener((ov, oldV, newV) -> updateSelectedText());
@@ -1889,7 +1889,20 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
         this.scrollBar.setValue(value);
     }
 
+    /** fxterm-tabs fork: counts every change of the model or the cursor, so a reader of the screen (ctl screen) can tell
+     *  cheaply whether anything happened since it last looked. The tab owns the counter and hands it in before start. */
+    public volatile java.util.concurrent.atomic.AtomicLong changes = new java.util.concurrent.atomic.AtomicLong();
+
+    /** fxterm-tabs fork: whether the program wants the cursor shown (DECTCEM). */
+    public volatile boolean cursorShown = true;
+
+    /** fxterm-tabs fork: the cursor's cell on the live screen, column and row from 0 (not the row in the scrolled view). */
+    public int[] cursorCell() {
+        return new int[] {myCursor.myCursorCoordinates.x, myCursor.myCursorCoordinates.y - 1};
+    }
+
     public void setCursor(final int x, final int y) {
+        if (myCursor.myCursorCoordinates.x != x || myCursor.myCursorCoordinates.y != y) changes.incrementAndGet();
         myCursor.setX(x);
         myCursor.setY(y);
     }
@@ -1945,6 +1958,8 @@ public class TerminalPanel implements TerminalDisplay, TerminalActionProvider {
 
     @Override
     public void setCursorVisible(boolean isCursorVisible) {
+        if (cursorShown != isCursorVisible) changes.incrementAndGet();
+        cursorShown = isCursorVisible;
         myCursor.setShouldDrawCursor(isCursorVisible);
     }
 

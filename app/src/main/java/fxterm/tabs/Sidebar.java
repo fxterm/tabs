@@ -170,7 +170,7 @@ public final class Sidebar {
         fold.setOnAction(e -> app.toggleGroup(t));
         icon(fold, t.collapsed ? "▸" : "▾");
         var hide = new MenuItem(t.hideAsleep ? "Show the group's hibernated tabs" : "Hide the group's hibernated tabs  (Ctrl+Shift+Z)");
-        hide.setOnAction(e -> app.toggleAsleep(t));
+        hide.setOnAction(e -> app.zz(t));
         icon(hide, "Zz");
         // the label's colour is the colour of every tab under it
         var colour = colourMenu("Colour the group", hex -> app.colourGroup(t, hex));

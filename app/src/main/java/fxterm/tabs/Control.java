@@ -182,7 +182,7 @@ public final class Control {
         } catch (IOException e) {
             return "{\"ok\":false,\"error\":\"not JSON\"}";
         }
-        Events.log("ctl", "request", req);
+        if (!"screen".equals(req.path("cmd").asText())) Events.log("ctl", "request", req);
         Platform.runLater(() -> {
             try {
                 var out = JSON.createObjectNode().put("ok", true);

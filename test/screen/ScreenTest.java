@@ -158,6 +158,16 @@ public class ScreenTest {
         check(now.path("cols").asInt() == first.path("cols").asInt() && now.path("rows").asInt() == first.path("rows").asInt(), "reading did not resize the tab");
         var again = screen(id, now.path("version").asLong());
         check(again.path("unchanged").asBoolean(), "and quiet again: unchanged");
+        var latest = now.path("version").asLong();
+        var t0 = System.nanoTime();
+        for (var i = 0; i < 50; i++) screen(id, latest);
+        var cheap = (System.nanoTime() - t0) / 50_000;
+        t0 = System.nanoTime();
+        for (var i = 0; i < 50; i++) screen(id, -1);
+        var full = (System.nanoTime() - t0) / 50_000;
+        check(cheap < 50_000 && full < 100_000, "a poll costs " + cheap + " us (since=), " + full + " us (whole screen), socket round trip included");
+        var log = Files.readString(Path.of(state + ".events.jsonl"));
+        check(log.contains("\"cmd\":\"send\"") && !log.contains("\"cmd\":\"screen\""), "polling leaves no trace in the event log (it would push out the useful events), other requests still do");
     }
 
     static void errors() throws Exception {

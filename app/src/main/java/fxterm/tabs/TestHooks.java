@@ -276,6 +276,66 @@ public final class TestHooks {
                 app.list.getSelectionModel().select(a); app.add(); System.err.println("test-order: new tab from a"); order.run();
             });
         });
+        // PRP 21: closing a tab beside hibernated tabs that their group hides must not bring one of them into sight, and
+        // Ctrl+Shift+Z with such a tab shown must hide it. Tab 1 (live) is above every label; the group "g" hides its
+        // hibernated tabs and holds a live tab L and two hibernated tabs h1, h2 right below it.
+        if (o.testCloseAsleep) Thread.ofPlatform().daemon().start(() -> {
+            var top = app.tabs.getFirst();
+            var head = new TerminalTab[1];
+            var live = new TerminalTab[1];
+            var h = new TerminalTab[2];
+            Runnable report = () -> {
+                var sel = app.selected();
+                var hs = sel == null ? null : app.headOf(sel);
+                var selHidden = sel != null && !sel.live() && hs != null && hs.hideAsleep;
+                System.err.println("test-close-asleep:   selected " + (sel == null ? "none" : sel.shown()) + ", group hides " + head[0].hideAsleep
+                        + ", h1 hidden " + app.folded(h[0]) + ", h2 hidden " + app.folded(h[1])
+                        + ", terminal shows selected " + (sel != null && app.content.getChildren().contains(sel.host)));
+                System.err.println("test-close-asleep:   no hidden tab selected " + (sel != null && !selHidden));
+            };
+            Bench.sleep(1500);
+            Platform.runLater(() -> {
+                head[0] = app.adopt(app.app.wire(TerminalTab.separator(o, app.theme, "g")));
+                head[0].hideAsleep = true;
+                live[0] = app.adopt(app.app.wire(TerminalTab.fresh(o, app.theme)));
+                live[0].custom.set("L");
+                for (var i = 0; i < 2; i++) {
+                    var s = new SavedTab();
+                    s.title = "h" + (i + 1);
+                    s.customTitle = s.title;
+                    h[i] = app.adopt(app.app.wire(TerminalTab.restored(o, app.theme, s)));
+                }
+                app.list.getSelectionModel().select(live[0]);
+                app.refresh();
+            });
+            Bench.sleep(2500);
+            Platform.runLater(() -> {
+                System.err.println("test-close-asleep: before: L shown, h1 and h2 asleep and hidden"); report.run();
+                app.close(live[0]);
+                System.err.println("test-close-asleep: L closed"); report.run();
+            });
+            Bench.sleep(800);
+            Platform.runLater(() -> {
+                System.err.println("test-close-asleep: a moment later"); report.run();
+                var sel = app.selected();
+                var ok = sel != null && !(sel.live() ? false : head[0].hideAsleep) && app.folded(h[0]) && app.folded(h[1]) && sel == top;
+                System.err.println("test-close-asleep: PART 1 " + (ok ? "PASS" : "FAIL"));
+                // the switcher can choose a hibernated tab of a hiding group; Ctrl+Shift+Z then hides it too
+                app.list.getSelectionModel().select(h[0]);
+            });
+            Bench.sleep(500);
+            Platform.runLater(() -> {
+                System.err.println("test-close-asleep: h1 shown (chosen from the switcher)"); report.run();
+                press(app.scene, KeyCode.Z, true, true);
+            });
+            Bench.sleep(500);
+            Platform.runLater(() -> {
+                System.err.println("test-close-asleep: after Ctrl+Shift+Z"); report.run();
+                var ok = head[0].hideAsleep && app.folded(h[0]) && app.selected() != h[0] && app.selected() != null && !app.folded(app.selected());
+                System.err.println("test-close-asleep: PART 2 " + (ok ? "PASS" : "FAIL"));
+                Snapshot.write(app.scene, o.snapshot != null ? o.snapshot : "close-asleep.png");
+            });
+        });
         // separators: never chosen, not counted, skipped by Ctrl+Tab, kept on save
         if (o.testSeparators) Thread.ofPlatform().daemon().start(() -> {
             Runnable chosen = () -> System.err.println("test-separators:   chosen " + (app.selected() == null ? "none" : app.selected().where()));

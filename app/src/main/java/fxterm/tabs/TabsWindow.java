@@ -622,6 +622,30 @@ public final class TabsWindow {
         return head.hideAsleep && !t.separator && !t.live() && t != selected();
     }
 
+    /** True for a real tab that would be in sight whoever is selected: not in a folded group, and not a hibernated tab of
+     *  a group that hides those (unlike folded(), the shown tab gets no exemption here). */
+    boolean inSight(TerminalTab t) {
+        if (t.separator) return false;
+        var head = headOf(t);
+        return head == null || !(head.collapsed || (head.hideAsleep && !t.live()));
+    }
+
+    /** The tab in sight nearest to row i, below first, never `except`; when none is in sight, any real tab (null when
+     *  there is none). Chosen by who the tab is, not by the place JavaFX's own selection would fall on. */
+    TerminalTab nearestInSight(int i, TerminalTab except) {
+        for (var d = 0; d < tabs.size(); d++) {
+            for (var j : new int[] {i + d, i - d}) {
+                if (j >= 0 && j < tabs.size() && tabs.get(j) != except && inSight(tabs.get(j))) return tabs.get(j);
+            }
+        }
+        for (var d = 0; d < tabs.size(); d++) {
+            for (var j : new int[] {i + d, i - d}) {
+                if (j >= 0 && j < tabs.size() && tabs.get(j) != except && !tabs.get(j).separator) return tabs.get(j);
+            }
+        }
+        return null;
+    }
+
     /** How many of a group's tabs are hibernated, and how many of those its header hides. */
     int[] asleepIn(TerminalTab head) {
         int all = 0, hidden = 0;
@@ -641,10 +665,28 @@ public final class TabsWindow {
         focusSoon();
     }
 
+    /** The Zz button, the label's menu and Ctrl+Shift+Z. A group that already hides, while the shown tab is one of its
+     *  hibernated tabs: that tab goes too (the selection moves to the nearest tab in sight) and the group keeps hiding.
+     *  Otherwise it switches the group between hiding and showing. */
+    void zz(TerminalTab head) {
+        var sel = selected();
+        if (head.hideAsleep && sel != null && !sel.live() && headOf(sel) == head) {
+            var next = nearestInSight(tabs.indexOf(sel), sel);
+            if (next != null && inSight(next)) {
+                Events.log("hide-asleep-shown", "head", Events.tab(head), "tab", Events.tab(sel), "next", Events.tab(next));
+                list.getSelectionModel().select(next);
+                refresh();
+                focusSoon();
+                return;
+            }
+        }
+        toggleAsleep(head);
+    }
+
     /** Ctrl+Shift+Z: the same, for the group of the shown tab. */
     void toggleAsleepOfShown() {
         var head = selected() == null ? null : headOf(selected());
-        if (head != null) toggleAsleep(head);
+        if (head != null) zz(head);
     }
 
     /** Folds or unfolds a group. Folding the group of the shown tab shows the nearest tab still in sight. */
@@ -653,13 +695,8 @@ public final class TabsWindow {
         Events.log(head.collapsed ? "collapse" : "expand", "head", Events.tab(head), "size", group(head).size() - 1);
         var shown = selected();
         if (head.collapsed && shown != null && folded(shown)) {
-            var i = tabs.indexOf(head);
-            TerminalTab next = null;
-            for (var d = 1; d < tabs.size() && next == null; d++) {
-                for (var j : new int[] {i + d, i - d})
-                    if (j >= 0 && j < tabs.size() && !tabs.get(j).separator && !folded(tabs.get(j))) { next = tabs.get(j); break; }
-            }
-            if (next != null) list.getSelectionModel().select(next);
+            var next = nearestInSight(tabs.indexOf(head), null);
+            if (next != null && inSight(next)) list.getSelectionModel().select(next);
         }
         refresh();
         focusSoon();
@@ -761,7 +798,16 @@ public final class TabsWindow {
         var i = tabs.indexOf(t);
         if (i < 0) return;
         var wasSelected = t == selected();
-        tabs.remove(t);
+        // the successor is chosen by who it is (in sight), before the tab leaves; the stop-over JavaFX's own selection
+        // makes on the row that slides into the place never reaches show()
+        var successor = wasSelected ? nearestInSight(i, t) : null;
+        moving = true;
+        try {
+            tabs.remove(t);
+            if (wasSelected && successor != null) list.getSelectionModel().select(successor);
+        } finally {
+            moving = false;
+        }
         if (end) {
             if (app.reader.tab == t) app.reader.stop();
             app.history.record(t.quickSave(), "closed");
@@ -773,7 +819,7 @@ public final class TabsWindow {
             app.emptied(this);
             return;
         }
-        if (wasSelected) list.getSelectionModel().clearAndSelect(tabs.indexOf(nearestReal(Math.min(i, tabs.size() - 1))));
+        if (wasSelected) show(successor);
         var now = selected();
         if (now != null) Platform.runLater(now::focus);
     }

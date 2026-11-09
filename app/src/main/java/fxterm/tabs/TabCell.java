@@ -195,7 +195,7 @@ public final class TabCell extends ListCell<TerminalTab> {
         arrow.setStyle("-fx-text-fill: " + t.colors.get(4) + "; -fx-font-size: 12; -fx-min-width: 12;");
         zz.setOnMouseClicked(e -> {
             if (getItem() != null && getItem().separator && e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
-                side.app.toggleAsleep(getItem());
+                side.app.zz(getItem());
                 e.consume();
             }
         });

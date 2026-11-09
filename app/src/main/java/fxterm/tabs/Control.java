@@ -37,6 +37,9 @@ public final class Control {
                                                      lines = per row runs {x,t,fg,bg,b,i,u,inv} (fg/bg as painted, inverse applied; left out when default).
                                                      since=<version of the last answer>: {unchanged:true,version} when nothing changed. A sleeping tab answers
                                                      its saved text unstyled with asleep:true. No scrollback.
+              tail id= [n=40]                        the last n rows it printed, scrollback included, plain text: {lines, version}. A read
+              wait id= text=|regex= [timeout=ms]     answers when the visible screen contains it: {matched,row,version}, else error timeout
+                                                     (default 30000, max 600000). Waits on its own thread, holds up nothing. A read
               scroll id= by=<lines>|top=true|bottom=true
               hibernate id=   wake id=   close id=
               show [window=]                         bring a window forward (what a bare `fxterm-tabs` launch does)
@@ -144,13 +147,11 @@ public final class Control {
             server.bind(UnixDomainSocketAddress.of(path));
             Thread.ofPlatform().daemon().name("control").start(() -> {
                 while (true) {
-                    try (var ch = server.accept()) {
-                        var line = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
-                        if (line == null) continue;   // a liveness probe (alive) that sends nothing
-                        var reply = handle(app, line);
-                        ch.write(ByteBuffer.wrap((reply + "\n").getBytes(StandardCharsets.UTF_8)));
+                    try {
+                        var ch = server.accept();
+                        Thread.ofVirtual().name("control-request").start(() -> answer(app, ch));
                     } catch (IOException | RuntimeException e) {
-                        System.err.println("fxterm-tabs: control request failed: " + e);
+                        System.err.println("fxterm-tabs: control accept failed: " + e);
                     }
                 }
             });
@@ -161,6 +162,18 @@ public final class Control {
             System.err.println("fxterm-tabs: control socket " + path);
         } catch (IOException e) {
             System.err.println("fxterm-tabs: no control socket: " + e);
+        }
+    }
+
+    /** One connection on its own thread, so a long `wait` holds up no other request. */
+    static void answer(TabsApp app, SocketChannel ch) {
+        try (ch) {
+            var line = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
+            if (line == null) return;   // a liveness probe (alive) that sends nothing
+            var reply = handle(app, line);
+            ch.write(ByteBuffer.wrap((reply + "\n").getBytes(StandardCharsets.UTF_8)));
+        } catch (IOException | RuntimeException e) {
+            System.err.println("fxterm-tabs: control request failed: " + e);
         }
     }
 
@@ -190,7 +203,9 @@ public final class Control {
         } catch (IOException e) {
             return "{\"ok\":false,\"error\":\"not JSON\"}";
         }
-        if (!"screen".equals(req.path("cmd").asText())) Events.log("ctl", "request", req);
+        var cmd = req.path("cmd").asText();
+        if (!cmd.equals("screen") && !cmd.equals("tail")) Events.log("ctl", "request", req);
+        if (cmd.equals("wait")) return Wait.run(app, req).toString();
         Platform.runLater(() -> {
             try {
                 var out = JSON.createObjectNode().put("ok", true);
@@ -263,6 +278,7 @@ public final class Control {
                 var n = r.path("lines").asInt(50);
                 out.put("text", String.join("\n", Arrays.asList(lines).subList(Math.max(0, lines.length - n), lines.length)));
             }
+            case "tail" -> ScreenText.tail(tab(app, r), Math.clamp(r.path("n").asInt(40), 1, 100_000), out);
             case "screen" -> ScreenView.read(tab(app, r), r.path("since").asLong(-1), out);
             case "scroll" -> {
                 var panel = live(app, r).widget.getTerminalPanel();

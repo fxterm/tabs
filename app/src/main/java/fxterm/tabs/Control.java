@@ -16,6 +16,8 @@ public final class Control {
 
     static final String HELP = """
             fxterm-tabs ctl <command> [name=value ...]     (values: text, numbers, true/false)
+            fxterm-tabs ctl -                              the request as JSON on stdin (text with quotes or non-ASCII characters a shell would damage)
+            fxterm-tabs ctl --json '{"cmd":"list"}'        the same inline
               list                                   windows and tabs: id, index, title, folder, live, colour, claude
               new [dir=] [command=] [title=] [window=] [group=] [from=] [front=true]
                                                      a tab (a shell in dir, or running command). group=<label>: at the end of that

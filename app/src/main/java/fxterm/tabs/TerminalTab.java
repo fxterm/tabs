@@ -17,6 +17,8 @@ public final class TerminalTab {
     /** A short name for this tab while Tabs runs, for the control channel and the event log (not kept across restarts). */
     final String id = Long.toString(java.util.concurrent.ThreadLocalRandom.current().nextLong(46656, 1679616), 36);
     final BooleanProperty asleep = new SimpleBooleanProperty();
+    /** Goes up whenever what the tab shows changes (the widget's model and cursor, a start, a sleep); `ctl screen` reads it. */
+    final AtomicLong version = new AtomicLong();
     final StackPane host = new StackPane();
     final Options o;
     final TabbyTheme theme;
@@ -162,6 +164,8 @@ public final class TerminalTab {
     void start() throws IOException {
         if (widget != null || separator) return;
         widget = new JediTermFxWidget(120, 30, new Theme(theme, o));
+        widget.getTerminalPanel().changes = version;
+        version.incrementAndGet();
         connector = new PtyConnector(argv, cwd, 120, 30, id);
         widget.setTtyConnector(connector);
         widget.getTerminalPanel().setTitleListener(t -> { if (!t.isBlank()) title.set(t); });
@@ -244,6 +248,7 @@ public final class TerminalTab {
      *  shows what waking it would start, and waits to be asked: Enter or F2, or the button. */
     void sleep(SavedTab s) {
         close();
+        version.incrementAndGet();
         sleeping = s;
         // waking starts what was saved (claude --resume ... in its folder, or the shell in its last folder), not whatever
         // the tab was first opened with: a plain shell in which claude had been typed would otherwise wake as a bare shell

@@ -66,7 +66,10 @@ public class ScreenTest {
         out.print(e + "31m中" + e + "0mX\r\n");
         out.print("READY\r\n");
         var in = new BufferedReader(new InputStreamReader(System.in));
-        for (var line = in.readLine(); line != null; line = in.readLine()) out.print(e + "32mMORE " + line + e + "0m\r\n");
+        for (var line = in.readLine(); line != null; line = in.readLine()) {
+            if (line.startsWith("flood ")) for (var i = 1; i <= Integer.parseInt(line.substring(6)); i++) out.print("L%03d\r\n".formatted(i));
+            else out.print(e + "32mMORE " + line + e + "0m\r\n");
+        }
     }
 
     public static void main(String[] a) throws Exception {
@@ -87,6 +90,8 @@ public class ScreenTest {
             attempt("styled", ScreenTest::styled);
             attempt("version", ScreenTest::version);
             attempt("errors", ScreenTest::errors);
+            attempt("tail", ScreenTest::tail);
+            attempt("wait", ScreenTest::waits);
             attempt("asleep", ScreenTest::asleep);
         } finally {
             app.destroyForcibly();
@@ -170,6 +175,61 @@ public class ScreenTest {
         check(log.contains("\"cmd\":\"send\"") && !log.contains("\"cmd\":\"screen\""), "polling leaves no trace in the event log (it would push out the useful events), other requests still do");
     }
 
+    static void send(String text) throws IOException {
+        ctl(Control.JSON.createObjectNode().put("cmd", "send").put("id", id).put("text", text).put("enter", true).toString());
+    }
+
+    static JsonNode tail(String extra) throws IOException { return ctl("{\"cmd\":\"tail\",\"id\":\"" + id + "\"" + extra + "}"); }
+
+    static List<String> lines(JsonNode r) {
+        var l = new ArrayList<String>();
+        r.path("lines").forEach(n -> l.add(n.asText()));
+        return l;
+    }
+
+    static String wait(String fields) { return "{\"cmd\":\"wait\",\"id\":\"" + id + "\"" + (fields.isEmpty() ? "" : "," + fields) + "}"; }
+
+    static void tail() throws Exception {
+        send("flood 100");
+        for (var i = 0; i < 100 && !lines(tail(",\"n\":1")).equals(List.of("L100")); i++) Thread.sleep(100);
+        var five = tail(",\"n\":5");
+        check(five.path("ok").asBoolean() && lines(five).equals(List.of("L096", "L097", "L098", "L099", "L100")), "tail n=5: the last five rows, no blank rows under them: " + lines(five));
+        var rows = first.path("rows").asInt();
+        var many = lines(tail(",\"n\":" + (rows + 30)));
+        check(many.size() == rows + 30 && many.getLast().equals("L100"), "tail n=rows+30 reaches into the scrollback: " + many.size() + " rows, last " + many.getLast());
+        check(many.contains("L070") && many.stream().noneMatch(l -> l.contains("") || l.endsWith(" ")), "scrollback rows are plain text, trailing blanks cut");
+        var plain = tail("");
+        check(lines(plain).size() == 40 && plain.path("version").asLong() > 0, "tail without n: 40 rows, with the version");
+        check(tail("").path("version").asLong() == plain.path("version").asLong(), "reading changed no version");
+        check(!ctl("{\"cmd\":\"tail\"}").path("ok").asBoolean(), "no id: ok false");
+    }
+
+    static void waits() throws Exception {
+        var there = ctl(wait("\"text\":\"L100\""));
+        check(there.path("ok").asBoolean() && "L100".equals(there.path("matched").asText()) && there.path("row").asInt() >= 0, "wait for text already on the screen: answers at once: " + there);
+        var t0 = System.nanoTime();
+        var gone = ctl(wait("\"text\":\"NEVER-PRINTED\",\"timeout\":600"));
+        var ms = (System.nanoTime() - t0) / 1_000_000;
+        check(!gone.path("ok").asBoolean() && "timeout".equals(gone.path("error").asText()) && gone.has("version") && ms >= 550 && ms < 2000, "wait for text that never comes: error timeout with the version, after " + ms + " ms: " + gone);
+        // a waiter must hold up neither the control socket nor the UI
+        var waiter = CompletableFuture.supplyAsync(() -> {
+            try { return ctl(wait("\"regex\":\"MORE l[a-z]+r\",\"timeout\":20000")); } catch (IOException e) { throw new UncheckedIOException(e); }
+        });
+        Thread.sleep(500);
+        var l0 = System.nanoTime();
+        var list = ctl("{\"cmd\":\"list\"}");
+        var listMs = (System.nanoTime() - l0) / 1_000_000;
+        check(!waiter.isDone() && list.path("ok").asBoolean() && listMs < 1000, "while a wait is pending, list still answers (" + listMs + " ms) and the wait is still waiting");
+        var s0 = System.nanoTime();
+        send("later");
+        var got = waiter.get(10, TimeUnit.SECONDS);
+        var since = (System.nanoTime() - s0) / 1_000_000;
+        check(got.path("ok").asBoolean() && "MORE later".equals(got.path("matched").asText()) && since < 2000, "regex wait answers when the line arrives, " + since + " ms after sending: " + got);
+        check(!ctl(wait("\"text\":\"a\",\"regex\":\"b\"")).path("ok").asBoolean() && !ctl(wait("")).path("ok").asBoolean(), "both or neither of text= and regex=: ok false");
+        check(ctl(wait("\"regex\":\"(\"")).path("error").asText().startsWith("bad regex"), "a bad regex is an error at once");
+        check(!ctl("{\"cmd\":\"wait\",\"id\":\"nope\",\"text\":\"x\"}").path("ok").asBoolean(), "unknown tab: ok false");
+    }
+
     static void errors() throws Exception {
         check(!screen("nope", -1).path("ok").asBoolean(), "unknown tab: ok false");
         check(!ctl("{\"cmd\":\"screen\"}").path("ok").asBoolean(), "no id: ok false");
@@ -186,6 +246,9 @@ public class ScreenTest {
             Thread.sleep(100);
         }
         check(s.path("asleep").asBoolean() && s.path("ok").asBoolean(), "a hibernated tab answers asleep:true: " + s.path("asleep"));
+        var asleepTail = tail(",\"n\":3");
+        check(asleepTail.path("asleep").asBoolean() && lines(asleepTail).size() == 3, "tail of a sleeping tab: its saved text, asleep:true: " + lines(asleepTail));
+        check(!ctl(wait("\"text\":\"L100\"")).path("ok").asBoolean(), "wait on a sleeping tab: an error, not a hang");
         check(run(s, "READY") != null && run(s, "READY").size() == 2, "its saved text, unstyled (x and t only)");
         ctl("{\"cmd\":\"wake\",\"id\":\"" + id + "\"}");
         JsonNode w = null;

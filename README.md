@@ -47,7 +47,7 @@ Drag a tab out of the window and it opens in a new window, with its program stil
 
 ### Window names and colours
 
-Each window has its own colour, never one that another open window wears, and can be given a name. The colour fills the window's title bar and border on Windows 11 and the terminal icon on the taskbar, so windows tell apart at a glance. The row above the tab list has flat icon buttons, with colour when the mouse is over one: History, the window's colour, its name, Restore all (the sun) and Settings (the gear). Name and colour are kept across restarts.
+Each window has its own colour, never one that another open window wears, and can be given a name. The colour fills the window's title bar and border on Windows 11 and the terminal icon on the taskbar, so windows tell apart at a glance. The row above the tab list has flat icon buttons, with colour when the mouse is over one: History, the window's colour, its name, Restore all (the sun) and Settings (the gear). Name and colour are kept across restarts. "No colour" in the colour menu gives the plain look (the terminal's own black title bar, the untinted icon), and "Default name (Window N)" in the gear menu clears the name; `ctl window-colour colour=none` and `ctl window-name name=` do the same. The gear menu's "Default folder for new tabs…" sets where a new tab opens (kept in `folder.json`, one setting for every window; a folder given with `open <dir>`, `ctl new dir=` or `--cwd` still wins, and empty means the home folder).
 
 ### The tab switcher
 

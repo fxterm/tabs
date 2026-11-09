@@ -35,7 +35,7 @@ public final class Control {
               switcher [window=0] [step=1] [query=]  open the Ctrl+Tab popup, optionally with text typed in its box
               switcher-shot file=<png>               a picture of the open popup;  switcher-close  closes it;  switcher-key spec=  a key to it
               attention [on|off]                    a bell on the calling tab (run inside it): rings once, asks the user to switch to it; off takes it away
-              window-name [window=0] name=           name a window (empty: Window N);  window-colour [window=0] colour=#rrggbb
+              window-name [window=0] name=           name a window (empty: Window N);  window-colour [window=0] colour=#rrggbb (empty or none: no colour)
               events [n=20]                          the last events from the event log
             Ids come from `list`; they last while Tabs runs. Windows count from 0, tabs from 0 in list order.
             """;
@@ -195,7 +195,7 @@ public final class Control {
                 var w = window(app, r);
                 var req = new Request();
                 req.kind = "run";
-                req.cwd = r.path("dir").asText(app.options.cwd != null ? app.options.cwd : System.getProperty("user.home"));
+                req.cwd = r.hasNonNull("dir") ? r.get("dir").asText() : null;
                 if (r.hasNonNull("command")) req.argv = ClaudeProbe.tokens(r.get("command").asText());
                 var t = w.adopt(app.wire(TerminalTab.of(app.options, app.theme, req)));
                 if (r.hasNonNull("title")) t.custom.set(r.get("title").asText());
@@ -274,7 +274,13 @@ public final class Control {
             case "switcher-close" -> app.switcher.close(true);
             case "switcher-key" -> TestHooks.pressKeys(app.switcher.stage.getScene(), need(r, "spec"));
             case "window-name" -> { var w = window(app, r); w.name = r.path("name").asText("").isBlank() ? null : r.get("name").asText(); w.look(); }
-            case "window-colour" -> { var w = window(app, r); w.colour = need(r, "colour"); w.look(); }
+            case "window-colour" -> {
+                var w = window(app, r);
+                if (!r.has("colour")) throw new IllegalArgumentException("missing colour (#rrggbb, or empty / none for no colour)");
+                var c = r.get("colour").asText("").strip();
+                w.colour = c.isEmpty() || c.equalsIgnoreCase(WindowLook.NONE) ? null : c;
+                w.look();
+            }
             case "key" -> TestHooks.pressKeys(window(app, r).scene, need(r, "spec"));
             case "events" -> {
                 try {
@@ -293,7 +299,8 @@ public final class Control {
     static ArrayNode list(TabsApp app) {
         var windows = JSON.createArrayNode();
         for (var w : app.windows) {
-            var wn = windows.addObject().put("index", app.windows.indexOf(w)).put("focused", w.stage.isFocused());
+            var wn = windows.addObject().put("index", app.windows.indexOf(w)).put("focused", w.stage.isFocused())
+                    .put("name", w.windowLabel()).put("colour", w.colour == null ? WindowLook.NONE : w.colour);
             var tabs = wn.putArray("tabs");
             for (var t : w.tabs) {
                 var n = tabs.addObject().put("id", t.id).put("index", w.tabs.indexOf(t)).put("title", t.shown());

@@ -56,6 +56,7 @@ public final class TabsApp extends Application {
         Ui.fullColour = "full".equals(options.tabFill);
         // a test run (off-screen or its own state file) neither reads nor writes the user's saved size
         FontSize.init(options.font > 0 ? options.font : theme.fontSize, !options.offscreen && options.state == null);
+        DefaultFolder.init(!options.offscreen && options.state == null);
         store = new SessionStore(options);
         history = new History(options);
         var states = options.offscreen || options.state != null ? List.of(new WindowState()) : WindowState.loadAll();

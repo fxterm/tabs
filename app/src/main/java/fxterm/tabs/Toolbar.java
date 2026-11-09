@@ -56,7 +56,8 @@ final class Toolbar extends HBox {
         colourIcon.setStyle("-fx-background-color: " + c + ";");
         name.setText(win.windowLabel());
         name.setStyle("-fx-text-fill: " + c + "; -fx-font-size: 11.5; -fx-font-weight: bold; -fx-padding: 0 0 0 8; -fx-opacity: 0.95;");
-        setStyle("-fx-background-color: " + Ui.shade(theme.background, -10) + "; -fx-padding: 3 6 3 4; -fx-border-color: " + c
+        var bar = win.colour == null ? "transparent" : c;
+        setStyle("-fx-background-color: " + Ui.shade(theme.background, -10) + "; -fx-padding: 3 6 3 4; -fx-border-color: " + bar
                 + " transparent transparent transparent; -fx-border-width: 3 0 0 0;");
     }
 

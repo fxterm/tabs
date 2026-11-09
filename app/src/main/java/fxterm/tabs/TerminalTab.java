@@ -81,11 +81,11 @@ public final class TerminalTab {
     }
 
     static TerminalTab fresh(Options o, TabbyTheme theme) {
-        return new TerminalTab(o, theme, ClaudeProbe.tokens(o.shell), o.cwd);
+        return new TerminalTab(o, theme, ClaudeProbe.tokens(o.shell), DefaultFolder.pick(o.cwd));
     }
 
     static TerminalTab of(Options o, TabbyTheme theme, Request r) {
-        return new TerminalTab(o, theme, r.command(o), r.cwd);
+        return new TerminalTab(o, theme, r.command(o), r.cwd != null ? r.cwd : DefaultFolder.pick(o.cwd));
     }
 
     /** Where the tab is working: what claude reports, else what the shell's prompt last reported, else where the tab

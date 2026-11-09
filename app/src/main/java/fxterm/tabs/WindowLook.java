@@ -10,6 +10,8 @@ final class WindowLook {
 
     /** Eight colours far enough apart to tell at a glance on a taskbar. */
     static final List<String> PALETTE = List.of("#e5534b", "#3fb950", "#d29922", "#58a6ff", "#bc8cff", "#39c5cf", "#f778ba", "#ff8c42");
+    /** What windows.json holds for "no colour"; a null there is a window saved before this existed (a free colour is chosen). */
+    static final String NONE = "none";
     static final List<String> NAMES = List.of("Red", "Green", "Amber", "Blue", "Violet", "Cyan", "Pink", "Orange");
 
     private static final Map<String, Image> ICONS = new HashMap<>();
@@ -23,7 +25,8 @@ final class WindowLook {
     /** The application icon repainted in the colour: its dark parts and greys take the colour (a dark shade of it for
      *  the background), its white parts (the prompt and the title line) stay white, so it still reads as the same icon. */
     static Image icon(String resource, String hex) {
-        return ICONS.computeIfAbsent(resource + hex, k -> loaded(tint(new Image(TabsApp.class.getResourceAsStream(resource)), Color.web(hex))));
+        var plain = new Image(TabsApp.class.getResourceAsStream(resource));
+        return hex == null ? plain : ICONS.computeIfAbsent(resource + hex, k -> loaded(tint(plain, Color.web(hex))));
     }
 
     /** On Windows JavaFX silently ignores a WritableImage among a stage's icons (the taskbar keeps the generic glyph, with

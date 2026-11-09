@@ -68,7 +68,6 @@ public final class TabsApp extends Application {
         var asked = request != null && !"show".equals(request.kind) ? main.adopt(wire(TerminalTab.of(options, theme, request))) : null;
         if (main.realTabs().isEmpty()) for (var i = 0; i < options.tabs; i++) main.adopt(wire(TerminalTab.fresh(options, theme)));
         windows.removeIf(w -> w.realTabs().isEmpty());
-        if (!options.offscreen && options.state == null || options.serve) Instance.serve(r -> Platform.runLater(() -> handle(r)));
         for (var i = 0; i < windows.size(); i++) {
             var w = windows.get(i);
             if (options.wakeAll) for (var t : w.realTabs().reversed()) w.list.getSelectionModel().select(t);
@@ -79,6 +78,8 @@ public final class TabsApp extends Application {
         }
         lastFocused = main;
         Control.serve(this, options.state);
+        // a test window that stands in for the user's one (--serve true) also listens where a launch looks for the running window
+        if (options.state != null && options.serve) Control.serve(this, null);
         IdleTrim.start();
         new Hibernator(this::hidden, options, s -> history.record(s, "hibernated")).start();
         ram = new RamWatch(this::allTabs, this::refreshAll);
@@ -118,18 +119,6 @@ public final class TabsApp extends Application {
             if (t.owner != null) t.owner.refreshSoon();
         });
         return t;
-    }
-
-    /** Another launch asked for something (Tabby's `open` / `run`, or just to be shown): to the last window used. */
-    void handle(Request r) {
-        var w = windows.contains(lastFocused) ? lastFocused : windows.getFirst();
-        if (!"show".equals(r.kind)) {
-            var t = wire(TerminalTab.of(options, theme, r));
-            w = Placement.add(this, t, r.group, r.from, w, false);
-            w.list.getSelectionModel().select(t);
-        }
-        if (w.stage.isIconified()) w.stage.setIconified(false);
-        w.stage.toFront();
     }
 
     /** A new window: with the given tab moved into it (dragged out, or "Move to window > New window"), or with a fresh
@@ -283,7 +272,6 @@ public final class TabsApp extends Application {
                 history.flush();
                 all.forEach(TerminalTab::close);
                 if (!options.offscreen && options.state == null) WindowState.saveAll(snapshot);
-                if (!options.offscreen && options.state == null || options.serve) Instance.release();
                 Control.release(options.state);
                 Events.log("quit", "windows", snapshot.size(), "tabs", saved.size());
                 if (restartAfterQuit) AppUpdate.relaunch();

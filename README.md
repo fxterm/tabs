@@ -32,6 +32,10 @@ The window is the one of the starting tab when it is known; with `--group`, the 
 
 `fxterm-tabs ctl whoami`, run inside a tab, answers that tab's id, window index, group (null when none) and folder.
 
+Tabs listens on no TCP port. A second launch (`open`, `run`, or none at all, which only brings the window forward) and every `ctl` command reach the running window through one Unix-domain socket file, `~/fxterm/tabs/run/ctl.sock`, which only this Windows user's processes can open; a socket file left by a crashed Tabs has nobody listening, so the launch then opens a window of its own.
+
+Text on a `ctl` command line can be damaged before Tabs sees it: Java decodes its arguments with the ANSI code page (a bell 🔔 becomes `??`), and PowerShell 5.1 removes the quotes inside an argument. Tabs reads the Windows command line itself, so non-ASCII text arrives intact; words after the first space of an unquoted `name=value` are kept as part of the value; replies print non-ASCII characters as JSON escapes, so they survive any console code page. For text with quotes, send the request on stdin, which nothing mangles: `'{"cmd":"rename","id":"t1","title":"say \"hi\""}' | fxterm-tabs ctl -` (from PowerShell 5.1 set `$OutputEncoding = [Text.UTF8Encoding]::new($false)` first). `ctl --json '<request>'` does the same from a shell that keeps quotes (bash, cmd).
+
 ### Tabs that sleep and wake
 
 ![A sleeping tab: the moon in the list, and its saved text with a Restore button](docs/screenshots/asleep.png)

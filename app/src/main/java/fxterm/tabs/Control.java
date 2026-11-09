@@ -16,8 +16,10 @@ public final class Control {
 
     static final String HELP = """
             fxterm-tabs ctl <command> [name=value ...]     (values: text, numbers, true/false)
+            fxterm-tabs ctl -                              the request as JSON on stdin (text with quotes or non-ASCII characters a shell would damage)
+            fxterm-tabs ctl --json '{"cmd":"list"}'        the same inline
               list                                   windows and tabs: id, index, title, folder, live, colour, claude
-              new [dir=] [command=] [title=] [window=] [group=] [from=]
+              new [dir=] [command=] [title=] [window=] [group=] [from=] [front=true]
                                                      a tab (a shell in dir, or running command). group=<label>: at the end of that
                                                      group (made at the end of the window when there is none). from=<tab id>: in
                                                      the group of that tab (the launcher sends its FXTERM_TABS_TAB); without
@@ -37,6 +39,7 @@ public final class Control {
                                                      its saved text unstyled with asleep:true. No scrollback.
               scroll id= by=<lines>|top=true|bottom=true
               hibernate id=   wake id=   close id=
+              show [window=]                         bring a window forward (what a bare `fxterm-tabs` launch does)
               window-new                             a new window with a fresh tab
               shot file=<png> [window=0]             a picture of a window
               key spec=meta+shift+e [window=0]       one key press to the window (ctrl, alt, shift, meta + a KeyCode name)
@@ -50,18 +53,22 @@ public final class Control {
             """;
 
     /**
-     * A launch that finds no registered window joins the running one through its control socket: `new` opens the tab in
-     * whichever window answers, so the tab lands where the user is, not in a window of its own. Needed because the
-     * registration file (Instance) is left behind by a window that exited, and then the forward to it is refused.
-     * Only open and run are joined; a bare launch still shows its own window as before.
+     * A launch hands its request to the running window through the control socket: `new` opens the tab in whichever window
+     * answers (and brings it forward), `show` only brings the window forward. A socket file left by a Tabs that crashed has
+     * nobody listening, so the connect fails and the launch opens a window of its own.
      */
     static boolean join(Request r) {
-        if (!"open".equals(r.kind) && !"run".equals(r.kind)) return false;
-        try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(socket(null)))) {
-            var req = JSON.createObjectNode().put("cmd", "new").put("dir", r.cwd);
-            if ("run".equals(r.kind) && !r.argv.isEmpty()) req.put("command", quoted(r.argv));
+        var req = JSON.createObjectNode().put("cmd", "show".equals(r.kind) ? "show" : "new");
+        if (!"show".equals(r.kind)) {
+            req.put("dir", r.cwd).put("front", true);
+            if ("run".equals(r.kind) && !r.argv.isEmpty()) {
+                req.put("command", quoted(r.argv));
+                r.argv.forEach(req.putArray("argv")::add);
+            }
             if (r.group != null) req.put("group", r.group);
             if (r.from != null) req.put("from", r.from);
+        }
+        try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(socket(null)))) {
             ch.write(ByteBuffer.wrap((JSON.writeValueAsString(req) + "\n").getBytes(StandardCharsets.UTF_8)));
             var reply = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
             return reply != null && JSON.readTree(reply).path("ok").asBoolean(false);
@@ -79,37 +86,36 @@ public final class Control {
     /** Where the socket lives: in the state folder, or beside a --state file for tests (a short temp name, since a
      *  Unix-domain socket path is limited to about 100 characters). */
     static Path socket(String state) {
-        if (state == null) return Path.of(System.getProperty("user.home"), "fxterm", "tabs", "run", "ctl.sock");
+        if (state == null) return System.getenv("FXTERM_TABS_INSTANCE") != null ? Path.of(System.getenv("FXTERM_TABS_INSTANCE"))
+                : Path.of(System.getProperty("user.home"), "fxterm", "tabs", "run", "ctl.sock");
         return Path.of(System.getProperty("java.io.tmpdir"), "fxtabs-" + Integer.toHexString(state.hashCode()) + ".sock");
     }
 
     // --- client: `fxterm-tabs ctl ...` ---
 
     static int client(List<String> args) {
-        String state = null;
-        var req = JSON.createObjectNode();
-        var words = new ArrayList<String>();
-        for (var a : args) {
-            var eq = a.indexOf('=');
-            if (a.startsWith("--state=")) state = a.substring(8);
-            else if (eq > 0) req.set(a.substring(0, eq), value(a.substring(eq + 1)));
-            else words.add(a);
+        var state = CtlArgs.state(args);
+        ObjectNode req;
+        try {
+            req = CtlArgs.request(args);
+        } catch (IOException | IllegalArgumentException e) {
+            System.out.println("{\"ok\":false,\"error\":" + JSON.valueToTree(String.valueOf(e.getMessage())) + "}");
+            return 2;
         }
-        if (words.isEmpty() || words.getFirst().equals("help")) {
+        if (req == null) {
             System.out.print(HELP);
             return 0;
         }
-        req.put("cmd", words.getFirst());
-        if (words.getFirst().equals("attention") || words.getFirst().equals("whoami")) {
-            if (words.getFirst().equals("attention") && words.size() > 1) req.put("on", !words.get(1).equals("off"));
+        var cmd = req.path("cmd").asText();
+        if (cmd.equals("attention") || cmd.equals("whoami")) {
             req.put("pid", ProcessHandle.current().pid());
             if (System.getenv("CLAUDE_CODE_SESSION_ID") != null) req.put("session", System.getenv("CLAUDE_CODE_SESSION_ID"));
-            if (words.getFirst().equals("whoami") && System.getenv("FXTERM_TABS_TAB") != null) req.put("tab", System.getenv("FXTERM_TABS_TAB"));
+            if (cmd.equals("whoami") && System.getenv("FXTERM_TABS_TAB") != null) req.put("tab", System.getenv("FXTERM_TABS_TAB"));
         }
         try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(socket(state)))) {
             ch.write(ByteBuffer.wrap((JSON.writeValueAsString(req) + "\n").getBytes(StandardCharsets.UTF_8)));
             var reply = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
-            System.out.println(reply);
+            System.out.println(CtlArgs.ascii(reply));
             return reply != null && reply.contains("\"ok\":true") ? 0 : 1;
         } catch (IOException e) {
             System.out.println("{\"ok\":false,\"error\":\"Tabs is not running (no control socket at " + socket(state).toString().replace("\\", "\\\\") + ")\"}");
@@ -140,6 +146,7 @@ public final class Control {
                 while (true) {
                     try (var ch = server.accept()) {
                         var line = new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine();
+                        if (line == null) continue;   // a liveness probe (alive) that sends nothing
                         var reply = handle(app, line);
                         ch.write(ByteBuffer.wrap((reply + "\n").getBytes(StandardCharsets.UTF_8)));
                     } catch (IOException | RuntimeException e) {
@@ -147,15 +154,18 @@ public final class Control {
                     }
                 }
             });
-            owned = path;
+            // a window that is killed leaves its socket file behind: a launch then fails to connect and opens its own window, which is
+            // correct, but remove it on the way out anyway
+            if (owned.isEmpty()) Runtime.getRuntime().addShutdownHook(new Thread(() -> release(null)));
+            owned.add(path);
             System.err.println("fxterm-tabs: control socket " + path);
         } catch (IOException e) {
             System.err.println("fxterm-tabs: no control socket: " + e);
         }
     }
 
-    /** The socket this process bound; release removes only that one, never another running Tabs's. */
-    static Path owned;
+    /** The sockets this process bound (its own, and the one launches use when it is the instance); release removes only those, never another running Tabs's. */
+    static final List<Path> owned = new CopyOnWriteArrayList<>();
 
     /** True when something is listening on the socket file (a real Tabs, as opposed to a file left by a crash). */
     static boolean alive(Path path) {
@@ -168,9 +178,7 @@ public final class Control {
     }
 
     static void release(String state) {
-        try {
-            if (owned != null) Files.deleteIfExists(owned);
-        } catch (IOException ignored) { }
+        for (var p : owned) try { Files.deleteIfExists(p); } catch (IOException ignored) { }
     }
 
     /** Runs the request on the FX thread and waits for its answer. */
@@ -208,12 +216,15 @@ public final class Control {
                 req.kind = "run";
                 req.cwd = r.hasNonNull("dir") ? r.get("dir").asText() : null;
                 if (r.hasNonNull("command")) req.argv = ClaudeProbe.tokens(r.get("command").asText());
+                if (r.path("argv").isArray()) { req.argv = new ArrayList<>(); r.get("argv").forEach(a -> req.argv.add(a.asText())); }
                 var t = app.wire(TerminalTab.of(app.options, app.theme, req));
                 var w = Placement.add(app, t, r.path("group").asText(null), r.path("from").asText(null), window(app, r), r.has("window"));
                 if (r.hasNonNull("title")) t.custom.set(r.get("title").asText());
                 w.list.getSelectionModel().select(t);
+                if (r.path("front").asBoolean(false)) front(w);
                 out.put("id", t.id);
             }
+            case "show" -> front(window(app, r));
             case "whoami" -> {
                 var t = caller(app, r);
                 var head = t.owner.headOf(t);
@@ -313,6 +324,12 @@ public final class Control {
             }
             default -> throw new IllegalArgumentException("unknown command '" + cmd + "' (fxterm-tabs ctl help)");
         }
+    }
+
+    /** The window raised, out of the taskbar if it was minimised: what a launch does when it joins a running Tabs. */
+    static void front(TabsWindow w) {
+        if (w.stage.isIconified()) w.stage.setIconified(false);
+        w.stage.toFront();
     }
 
     static ArrayNode list(TabsApp app) {

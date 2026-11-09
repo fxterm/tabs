@@ -11,7 +11,7 @@ public final class Main {
     static final long MAX_LOG = 10L << 20;
 
     public static void main(String[] args) throws IOException {
-        var list = List.of(args);
+        var list = List.of(WinArgs.of(args));
         // `fxterm-tabs ctl ...` talks to the running Tabs and prints its JSON reply (see Control)
         if (!list.isEmpty() && list.getFirst().equals("ctl")) System.exit(Control.client(list.subList(1, list.size())));
         logToFile();
@@ -22,8 +22,8 @@ public final class Main {
             System.out.println("fxterm-tabs: " + e.getMessage());
             System.exit(2);
         }
-        // the registered window first; then any running window through its control socket (see Control.join); else a window of its own
-        if (request != null && (Instance.forward(request) || Control.join(request))) System.exit(0);
+        // a running window takes the request through its control socket (Control.join); else a window of its own
+        if (request != null && Control.join(request)) System.exit(0);
         TabsApp.request = request;
         var options = request == null ? args : new String[0];
         javafx.application.Application.launch(TabsApp.class, options);

@@ -3,13 +3,13 @@ package fxterm.tabs;
 import module java.base;
 import com.fasterxml.jackson.databind.JsonNode;
 
-/** PRP 24: a launch into a tab group. Starts an offscreen Tabs on its own state, socket and instance file (nothing of a running
+/** PRP 24: a launch into a tab group. Starts an offscreen Tabs on its own state and control socket (nothing of a running
  *  Tabs is touched), then launches `run`/`open --group` through Main the way proj does, and reads the order back with ctl list.
  *  Exit 0: all passed, 1: a check failed, 2: Tabs did not start. Usage: GroupTest <the jar under test> */
 public class GroupTest {
 
     static int failed = 0;
-    static Path home, state, instance;
+    static Path home, state;
     static String jar;
 
     static void check(boolean ok, String what) {
@@ -20,7 +20,7 @@ public class GroupTest {
     static JsonNode ctl(String json) throws IOException {
         try (var ch = SocketChannel.open(UnixDomainSocketAddress.of(Control.socket(state.toString())))) {
             ch.write(ByteBuffer.wrap((json + "\n").getBytes(StandardCharsets.UTF_8)));
-            return Instance.JSON.readTree(new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine());
+            return Control.JSON.readTree(new BufferedReader(new InputStreamReader(Channels.newInputStream(ch), StandardCharsets.UTF_8)).readLine());
         }
     }
 
@@ -29,7 +29,6 @@ public class GroupTest {
         var cmd = new ArrayList<>(List.of(Path.of(System.getProperty("java.home"), "bin", "java").toString(), "-Duser.home=" + home, "-cp", jar, "fxterm.tabs.Main"));
         cmd.addAll(List.of(args));
         var pb = new ProcessBuilder(cmd).directory(home.toFile()).redirectErrorStream(true);
-        pb.environment().put("FXTERM_TABS_INSTANCE", instance.toString());
         pb.environment().remove("FXTERM_TABS_TAB");
         if (tab != null) pb.environment().put("FXTERM_TABS_TAB", tab);
         return pb;
@@ -74,7 +73,6 @@ public class GroupTest {
         jar = Path.of(a[0]).toAbsolutePath().toString();
         home = Files.createTempDirectory("fxg");
         state = home.resolve("state.json");
-        instance = home.resolve("instance.json");
         System.setProperty("user.home", home.toString());
         var app = java(null, "--offscreen", "true", "--state", state.toString(), "--serve", "true", "--restore", "false").start();
         try {
@@ -161,11 +159,11 @@ public class GroupTest {
         check(seen, "the shell of a tab has FXTERM_TABS_TAB=<its id>");
 
         var out = run(b1, "ctl", "--state=" + state, "whoami");
-        var w = Instance.JSON.readTree(out);
+        var w = Control.JSON.readTree(out);
         check(w.path("ok").asBoolean() && w.path("id").asText().equals(b1) && w.path("window").asInt(-1) == 0 && w.path("group").asText("null").equals("B") && w.has("folder"),
                 "ctl whoami inside a tab of B: id, window, group, folder: " + out);
         out = run(t0, "ctl", "--state=" + state, "whoami");
-        w = Instance.JSON.readTree(out);
+        w = Control.JSON.readTree(out);
         check(w.path("ok").asBoolean() && w.path("id").asText().equals(t0) && w.has("group") && w.get("group").isNull(), "ctl whoami inside a tab in no group: group is null: " + out);
         check(!ctl("{\"cmd\":\"whoami\",\"tab\":\"zzzz\"}").path("ok").asBoolean(), "ctl whoami with an unknown tab id: an error, not a guess");
     }

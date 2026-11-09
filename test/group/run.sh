@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PRP 24: a launch into a tab group (run/open --group, the group of the starting tab, ctl new group=, ctl whoami).
-# Starts an offscreen Tabs on its own state file, control socket and instance file, with user.home in a temp folder: a running Tabs is never touched. No window is shown.
+# Starts an offscreen Tabs on its own state file and control socket, with user.home in a temp folder: a running Tabs is never touched. No window is shown.
 # Usage: run.sh [jar]     exit 0 all passed, 1 a check failed, 2 Tabs did not start
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/../.."
 JAR="$(cygpath -w "$(realpath "${1:-$ROOT/shade/fxterm-tabs.jar}")")"

@@ -34,7 +34,7 @@ public final class TabsWindow {
     final Scene scene;
     boolean moving;
     /** What the user called this window (null: none, it is "Window N"), and its colour: the colour of its title bar,
-     *  its border and its taskbar icon, never one that another open window wears. */
+     *  its border and its taskbar icon (null: no colour, the plain look). */
     String name, colour;
 
     TabsWindow(TabsApp app, Stage stage, WindowState ws) {
@@ -43,7 +43,7 @@ public final class TabsWindow {
         this.theme = app.theme;
         this.stage = stage;
         this.name = ws.name;
-        this.colour = ws.colour != null ? ws.colour : app.freeColour();
+        this.colour = ws.colour == null ? app.freeColour() : ws.colour.isBlank() || WindowLook.NONE.equals(ws.colour) ? null : ws.colour;
         soon.setOnFinished(e -> refresh());
         // a tab added or taken away here renumbers the windows after this one
         tabs.addListener((ListChangeListener<TerminalTab>) c -> app.windows.forEach(TabsWindow::refreshSoon));

@@ -12,8 +12,9 @@ public final class Request {
     /** Null when the arguments are not a Tabby-style command (then they are fxterm-tabs options). */
     static Request parse(List<String> args) {
         var r = new Request();
-        r.cwd = System.getProperty("user.dir");
+        // a bare launch (Start menu, taskbar) has no folder of its own: the default folder applies
         if (args.isEmpty()) return r;
+        r.cwd = System.getProperty("user.dir");
         switch (args.getFirst()) {
             case "open" -> {
                 r.kind = "open";

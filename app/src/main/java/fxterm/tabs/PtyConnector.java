@@ -52,9 +52,12 @@ public final class PtyConnector implements TtyConnector {
     final StringBuilder tail = new StringBuilder();
     volatile String promptCwd;
 
-    PtyConnector(List<String> argv, String cwd, int columns, int rows) throws IOException {
+    /** `tabId` goes into the environment of everything the tab runs, so a program anywhere below it can say which tab it is in
+     *  (a launch of `fxterm-tabs run`, `ctl whoami`), however many levels down and even when a process between has gone. */
+    PtyConnector(List<String> argv, String cwd, int columns, int rows, String tabId) throws IOException {
         var env = new HashMap<>(System.getenv());
         env.put("TERM", "xterm-256color");
+        env.put("FXTERM_TABS_TAB", tabId);
         if (!Os.WIN) {
             env.put("COLORTERM", "truecolor");
             env.putIfAbsent("LANG", "en_US.UTF-8");

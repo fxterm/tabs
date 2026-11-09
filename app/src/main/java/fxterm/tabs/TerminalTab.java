@@ -162,7 +162,7 @@ public final class TerminalTab {
     void start() throws IOException {
         if (widget != null || separator) return;
         widget = new JediTermFxWidget(120, 30, new Theme(theme, o));
-        connector = new PtyConnector(argv, cwd, 120, 30);
+        connector = new PtyConnector(argv, cwd, 120, 30, id);
         widget.setTtyConnector(connector);
         widget.getTerminalPanel().setTitleListener(t -> { if (!t.isBlank()) title.set(t); });
         widget.addHyperlinkFilter(new Links(true));

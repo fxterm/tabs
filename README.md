@@ -91,6 +91,17 @@ Select text in the terminal and a small bar appears beside it: **Copy**, **Read 
 
 Ctrl+= makes the text bigger, Ctrl+- smaller, and Ctrl+0 goes back to the default. Ctrl+mouse wheel and pinching on a touchpad or touch screen do the same. The size applies to every tab in every window and is remembered.
 
+### Reading a tab from another program
+
+Another program on the same Windows user (a dashboard, a script, an AI agent that supervises others) can look at a tab through the control socket, without typing into it or changing anything:
+
+- `fxterm-tabs ctl list` lists the tabs, windows and groups.
+- `fxterm-tabs ctl screen id=<tab>` answers what the tab shows now, with its colours: each row's text and styling (bold, italic, underline, inverse), the cursor, the default colours and a `version` number. Ask again with `since=<version>` and an unchanged tab answers `unchanged` at the cost of a number comparison, so a viewer can poll several times a second. A sleeping tab answers its saved text with `asleep: true`.
+- `fxterm-tabs ctl tail id=<tab> [n=40]` answers the last n rows the tab printed, scrollback included, as plain text.
+- `fxterm-tabs ctl wait id=<tab> text=<words>` (or `regex=<pattern>`, and `timeout=<ms>`, 30 seconds by default) answers as soon as the visible screen contains it, or with a timeout. It waits on its own connection, so other requests are not held up.
+
+These are reads. `ctl screen` and `ctl tail` polls are not written to the log.
+
 ### Also
 
 - The right mouse button pastes (Ctrl+right-click keeps the menu).
@@ -133,7 +144,7 @@ Everything else goes to the program in the tab.
 
 Download `fxterm-tabs.exe` from the [latest release](https://github.com/fxterm/tabs/releases/latest) and run it. It needs Java 25 (the exe finds an installed JDK 25 or later). On first run it downloads `fxterm-tabs.jar` from the same release and checks it against the SHA-256 built into the exe. `fxterm-tabs.exe -Xjr:update` moves to a newer release.
 
-Settings and saved state live in `%USERPROFILE%\fxterm\tabs`: open tabs, window places, font size, history and the log.
+Settings and saved state live in `%USERPROFILE%\fxterm\tabs`: open tabs, window places, font size, history and the log. The log (`fxterm-tabs.log`) stops at 10 MB and keeps one older file beside it; a stack trace that repeats is counted, not written again and again.
 
 ## Options
 

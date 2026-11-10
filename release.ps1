@@ -11,6 +11,8 @@
 #  - -Djr.source=url (the plugin's default is a local path source): jr-maven-plugin builds fxterm-tabs.exe with the
 #    sha256 of exactly that jar and its release url baked in, and writes the release folder (exe, jar, SHA256SUMS,
 #    version.txt, update file).
+#  - The release is created NOT latest (installed copies read the latest release's update file, so none is offered it yet);
+#    every asset is downloaded from its public url and its SHA-256 compared with the build's; only then it is made latest.
 #  - After publishing, every asset is downloaded from its public url and its SHA-256 compared with the build's.
 #    GitHub has served an asset with HTTP 500 right after upload before (cfucli 0.5.1), so look, do not assume.
 #  - The update file is itself a release asset (releases/latest/download/fxterm-tabs.update.json); there is no site copy.
@@ -91,9 +93,11 @@ $notes += "Windows and macOS (Apple silicon and Intel), needs Java 25. Windows: 
 $notesFile = Join-Path $work 'release-notes.md'
 [IO.File]::WriteAllText($notesFile, $notes + "`n")
 $assets = (Get-ChildItem $out -File).FullName
-& $gh release create $tag $assets --repo $repo --target (Sha HEAD) --title "Tabs $version" --notes-file $notesFile --latest=true
+& $gh release create $tag $assets --repo $repo --target (Sha HEAD) --title "Tabs $version" --notes-file $notesFile --latest=false
 if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
-Write-Host "published $tag"
+# Published but NOT latest: releases/latest/download/fxterm-tabs.update.json (what every installed copy reads) still names the
+# old version, so nobody is offered this release until every asset has been fetched and compared, below.
+Write-Host "published $tag (not yet latest)"
 
 # look at every asset as a user would get it
 $check = Join-Path $work 'check'
@@ -108,6 +112,10 @@ foreach ($f in (Get-ChildItem $out -File)) {
     Write-Host ("  {0,-28} {1}" -f $f.Name, $(if ($same) { 'same bytes' } else { 'DIFFERENT' }))
     if (-not $same) { $bad++ }
 }
+if ($bad) { throw "$bad asset check(s) failed - the release is NOT latest, nobody is offered it; fix or delete it ($gh release delete $tag --repo $repo --cleanup-tag)" }
+& $gh release edit $tag --repo $repo --latest
+if ($LASTEXITCODE -ne 0) { throw "gh release edit --latest failed - $tag is published but not latest" }
+Write-Host "$tag is now latest; if the update test fails, roll back: $gh release edit <previous tag> --repo $repo --latest"
 & curl.exe -fsSL -o (Join-Path $check 'latest.update.json') "https://github.com/$repo/releases/latest/download/fxterm-tabs.update.json"
 $stable = (Get-Content (Join-Path $check 'latest.update.json') -Raw | ConvertFrom-Json).channels.stable
 Write-Host "releases/latest update file says stable = $stable"
